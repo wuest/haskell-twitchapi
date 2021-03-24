@@ -7,13 +7,15 @@ module Web.TwitchAPI.Helix.ChannelPoints where
 
 import Prelude
 
-import qualified Data.Time           as Time
-import qualified Data.Time.RFC3339   as Time ( formatTimeRFC3339, parseTimeRFC3339 )
-import qualified Data.Text           as Text
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.Time             as Time
+import qualified Data.Time.RFC3339     as Time ( formatTimeRFC3339, parseTimeRFC3339 )
+import qualified Data.Text             as Text
+import qualified Network.HTTP.Client   as HTTP
 
 import Data.Maybe ( fromMaybe )
 import Data.Aeson ( FromJSON(..), (.:), (.:?), (.!=), withObject
-                  , ToJSON(..), (.=), object
+                  , ToJSON(..), (.=), object, encode
                   , Object, Array
                   )
 
@@ -26,21 +28,19 @@ createRequest :: (String, String)
 createRequest = ("GET", "https://api.twitch.tv/helix/channel_points/custom_rewards")
 
 data Create = Create { broadcasterId :: Integer
+                     , title :: String
+                     , prompt :: Maybe String
+                     , cost :: Integer
+                     , enabled :: Maybe Bool
+                     , backgroundColor :: Maybe String
+                     , maxPerStream :: Maybe Integer
+                     , maxPerUser :: Maybe Integer
+                     , cooldownSeconds :: Maybe Integer
+                     , autoFulfilled :: Maybe Bool
                      } deriving ( Show, Eq )
 
-data CreateJSON = CreateJSON { title :: String
-                             , prompt :: Maybe String
-                             , cost :: Integer
-                             , enabled :: Maybe Bool
-                             , backgroundColor :: Maybe String
-                             , maxPerStream :: Maybe Integer
-                             , maxPerUser :: Maybe Integer
-                             , cooldownSeconds :: Maybe Integer
-                             , autoFulfilled :: Maybe Bool
-                             } deriving ( Show, Eq )
-
-instance ToJSON CreateJSON where
-    toJSON CreateJSON{..} =
+instance ToJSON Create where
+    toJSON Create{..} =
         object [ "title"      .= (Text.pack title)
                , "prompt"     .= (Text.pack <$> prompt)
                , "cost"       .= cost
@@ -55,6 +55,13 @@ instance ToJSON CreateJSON where
                , "global_cooldown_seconds" .= cooldownSeconds
                , "should_redemptions_skip_request_queue" .= autoFulfilled
                ]
+
+instance Req.HelixRequest Create where
+    toRequest c =
+        let setQuery  = HTTP.setQueryString [("broadcaster_id", Just . BS.pack . show $ (broadcasterId :: Create -> Integer) c)]
+            setBody r = r{ HTTP.requestBody = HTTP.RequestBodyLBS . encode . toJSON $ c }
+        in setBody . setQuery $ HTTP.parseRequest_ "POST https://api.twitch.tv/helix/channel_points/custom_rewards" 
+
 
 data RewardImages = RewardImages { tiny :: Maybe String
                                  , large :: Maybe String
