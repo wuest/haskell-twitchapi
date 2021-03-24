@@ -57,11 +57,10 @@ instance Req.HelixRequest Create where
         in setBody . setQuery $ HTTP.parseRequest_ "POST https://api.twitch.tv/helix/channel_points/custom_rewards" 
     scope Create{} = Just "channel:manage:redemptions"
 
-
 data RewardImages = RewardImages { tiny :: Maybe String
                                  , large :: Maybe String
                                  , huge :: Maybe String
-                                 } deriving ( Show )
+                                 } deriving ( Show, Eq )
 
 instance FromJSON RewardImages where
     parseJSON = withObject "RewardImages" $ \o -> do
@@ -88,7 +87,8 @@ data CreateResponse = CreateResponse { broadcasterId :: Integer
                                      , autoFulfilled :: Bool
                                      , redemptionCount :: Integer
                                      , cooldownExpires :: Maybe Time.UTCTime
-                                     } deriving ( Show )
+                                     } deriving ( Show, Eq )
+
 instance FromJSON CreateResponse where
     parseJSON = withObject "CreateResponse" $ \o -> do
         bid <- o .: "broadcaster_id"
