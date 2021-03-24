@@ -25,7 +25,7 @@ createScope = "channel:manage:redemptions"
 createRequest :: (String, String)
 createRequest = ("GET", "https://api.twitch.tv/helix/channel_points/custom_rewards")
 
-data Create = Create { broadcasterId :: String
+data Create = Create { broadcasterId :: Integer
                      } deriving ( Show, Eq )
 
 data CreateJSON = CreateJSON { title :: String
@@ -55,3 +55,75 @@ instance ToJSON CreateJSON where
                , "global_cooldown_seconds" .= cooldownSeconds
                , "should_redemptions_skip_request_queue" .= autoFulfilled
                ]
+
+data RewardImages = RewardImages { tiny :: Maybe String
+                                 , large :: Maybe String
+                                 , huge :: Maybe String
+                                 } deriving ( Show )
+
+instance FromJSON RewardImages where
+    parseJSON = withObject "RewardImages" $ \o -> do
+        tiny <- o .: "url_1x"
+        large <- o .: "url_2x"
+        huge <- o .: "url_4x"
+        return RewardImages{..}
+
+data CreateResponse = CreateResponse { broadcasterId :: Integer
+                                     , broadcasterLogin :: String
+                                     , broadcasterName :: String
+                                     , rewardId :: String
+                                     , rewardTitle :: String
+                                     , prompt :: Maybe String
+                                     , rewardCost :: Integer
+                                     , rewardImage :: Maybe RewardImages
+                                     , defaultImage :: RewardImages
+                                     , backgroundColor :: String
+                                     , maxPerStream :: Maybe Integer
+                                     , maxPerUser :: Maybe Integer
+                                     , cooldownSeconds :: Maybe Integer
+                                     , paused :: Bool
+                                     , inStock :: Bool
+                                     , autoFulfilled :: Bool
+                                     , redemptionCount :: Integer
+                                     , cooldownExpires :: Maybe Time.UTCTime
+                                     } deriving ( Show )
+instance FromJSON CreateResponse where
+    parseJSON = withObject "CreateResponse" $ \o -> do
+        bid <- o .: "broadcaster_id"
+        let broadcasterId = read bid :: Integer
+        broadcasterLogin <- o .: "broadcaster_login"
+        broadcasterName <- o .: "broadcaster_name"
+        rewardId <- o .: "id"
+        rewardTitle <- o .: "title"
+
+        promptText <- o .: "prompt"
+        promptEnabled :: Bool <- o .: "is_user_input_required"
+        let prompt = if promptEnabled then Just promptText else Nothing
+
+        rewardCost <- o .: "cost"
+        rewardImage <- o .: "image"
+        defaultImage <- o .: "default_image"
+        backgroundColor <- o .: "background_color"
+
+        maxObject :: Object <- o .: "max_per_stream_setting"
+        maxEnabled <- maxObject .: "is_enabled"
+        streamMax <- maxObject .: "max_per_stream"
+        let maxPerStream = if maxEnabled then Just streamMax else Nothing
+
+        userMaxObject :: Object <- o .: "max_per_user_per_stream_setting"
+        userMaxEnabled <- userMaxObject .: "is_enabled"
+        userMax <- userMaxObject .: "max_per_user_per_stream"
+        let maxPerUser = if userMaxEnabled then Just userMax else Nothing
+
+        cooldownObject :: Object <- o .: "global_cooldown_setting"
+        cooldownEnabled <- cooldownObject .: "is_enabled"
+        cooldown <- cooldownObject .: "global_cooldown_seconds"
+        let cooldownSeconds = if cooldownEnabled then Just cooldown else Nothing
+
+        paused <- o .: "is_paused"
+        inStock <- o .: "is_in_stock"
+        autoFulfilled <- o .: "should_redemptions_skip_request_queue"
+        redemptionCount <- o .: "redemptions_redeemed_current_stream"
+        cooldownExpiry :: Maybe String <- o .: "cooldown_expires_at"
+        let cooldownExpires = Time.zonedTimeToUTC <$> (Time.parseTimeRFC3339 =<< cooldownExpiry)
+        return CreateResponse{..}
