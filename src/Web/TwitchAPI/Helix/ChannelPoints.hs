@@ -9,23 +9,17 @@ import Prelude
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Time             as Time
-import qualified Data.Time.RFC3339     as Time ( formatTimeRFC3339, parseTimeRFC3339 )
+import qualified Data.Time.RFC3339     as Time ( parseTimeRFC3339 )
 import qualified Data.Text             as Text
 import qualified Network.HTTP.Client   as HTTP
 
 import Data.Maybe ( fromMaybe )
-import Data.Aeson ( FromJSON(..), (.:), (.:?), (.!=), withObject
+import Data.Aeson ( FromJSON(..), (.:), withObject
                   , ToJSON(..), (.=), object, encode
-                  , Object, Array
+                  , Object
                   )
 
 import qualified Web.TwitchAPI.Helix.Request as Req
-
-createScope :: String
-createScope = "channel:manage:redemptions"
-
-createRequest :: (String, String)
-createRequest = ("GET", "https://api.twitch.tv/helix/channel_points/custom_rewards")
 
 data Create = Create { broadcasterId :: Integer
                      , title :: String
@@ -61,6 +55,7 @@ instance Req.HelixRequest Create where
         let setQuery  = HTTP.setQueryString [("broadcaster_id", Just . BS.pack . show $ (broadcasterId :: Create -> Integer) c)]
             setBody r = r{ HTTP.requestBody = HTTP.RequestBodyLBS . encode . toJSON $ c }
         in setBody . setQuery $ HTTP.parseRequest_ "POST https://api.twitch.tv/helix/channel_points/custom_rewards" 
+    scope Create{} = Just "channel:manage:redemptions"
 
 
 data RewardImages = RewardImages { tiny :: Maybe String
