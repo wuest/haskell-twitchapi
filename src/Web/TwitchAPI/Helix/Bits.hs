@@ -11,9 +11,9 @@ import qualified Data.Time           as Time
 import qualified Data.Time.RFC3339   as Time ( formatTimeRFC3339, parseTimeRFC3339 )
 import qualified Data.Text           as Text
 
-import Data.Aeson ( FromJSON(..), (.:), (.:?), (.!=), withObject
+import Data.Aeson ( FromJSON(..), (.:), withObject
                   , ToJSON(..), (.=), object
-                  , Object, Array
+                  , Object
                   )
 
 leaderboardScope :: String
