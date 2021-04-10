@@ -54,7 +54,7 @@ instance Req.HelixRequest Create where
     toRequest c =
         let setQuery  = HTTP.setQueryString [("broadcaster_id", Just . BS.pack . show $ (broadcasterId :: Create -> Integer) c)]
             setBody r = r{ HTTP.requestBody = HTTP.RequestBodyLBS . encode . toJSON $ c }
-        in setBody . setQuery $ HTTP.parseRequest_ "POST https://api.twitch.tv/helix/channel_points/custom_rewards" 
+        in setBody . setQuery $ HTTP.parseRequest_ "POST https://api.twitch.tv/helix/channel_points/custom_rewards"
     scope Create{} = Just "channel:manage:redemptions"
 
 data RewardImages = RewardImages { tiny :: Maybe String
