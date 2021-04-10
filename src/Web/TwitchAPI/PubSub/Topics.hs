@@ -7,8 +7,9 @@ module Web.TwitchAPI.PubSub.Topics where
 
 import Prelude
 
-import qualified Data.Time           as Time
-import qualified Data.Time.RFC3339   as Time ( formatTimeRFC3339, parseTimeRFC3339 )
+import qualified Data.Time             as Time
+import qualified Data.Time.RFC3339     as Time ( formatTimeRFC3339, parseTimeRFC3339 )
+import qualified Data.Time.Clock.POSIX as Time ( POSIXTime, posixSecondsToUTCTime )
 
 import Data.Aeson ( FromJSON(..), (.:), (.:?), withObject, withText, withEmbeddedJSON
                   , ToJSON(..), (.=), object
@@ -272,7 +273,16 @@ data Message = BitsV2Message { badge :: Maybe BadgeUnlock
                                                                  , subPlanName :: String
                                                                  , recipient :: UserInfo
                                                                  , months :: Integer
-                                                                 } deriving ( Eq, Show )
+                                                                 }
+             | WhisperMessage { messageId :: String
+                              , threadId :: String
+                              , time :: Maybe Time.UTCTime
+                              , messageBody :: String
+                              , emotes :: [EmoteSpec]
+                              , user :: UserInfo
+                              , userColor :: String
+                              , recipient :: UserInfo
+                              } deriving ( Eq, Show )
 
 parseChannelSubscribeEvent o = do
     uid :: String <- o .: "user_id"
@@ -384,7 +394,7 @@ parseBitsV2Message o = do
     chatMessage <- dat .: "chat_message"
     context <- dat .: "context"
     anonymous <- o .: "is_anonymous"
-    messageId <- o .: "message_id" -- Always cheer?  No other examples given in API docs
+    messageId <- o .: "message_id"
     messageType <- o .: "message_type" -- Always bits_event?  No other examples given in API docs
     userTotal <- dat .: "total_bits_used"
     userName <- dat .: "user_name"
@@ -408,7 +418,7 @@ parseBitsV1Message o = do
     channelName <- dat .: "channel_name"
     chatMessage <- dat .: "chat_message"
     context <- dat .: "context"
-    messageId <- o .: "message_id" -- Always cheer?  No other examples given in API docs
+    messageId <- o .: "message_id"
     messageType <- o .: "message_type" -- Always bits_event?  No other examples given in API docs
     userTotal <- dat .: "total_bits_used"
     userName <- dat .: "user_name"
@@ -478,6 +488,30 @@ parseRewardMessage o =  do
 
     return ChannelPointsMessage{..}
 
+parseWhisperMessage o =  do
+    dat <- o .: "data_object"
+    messageId <- dat .: "message_id"
+    threadId <- dat .: "thread_id"
+    messageBody <- dat .: "body"
+    tags <- dat .: "tags"
+    emotes <- tags .: "emotes"
+    userColor <- tags .: "color"
+
+    userId <- dat .: "from_id"
+    userName <- tags .: "login"
+    displayName <- tags .: "display_name"
+    let user = UserInfo userId userName displayName
+
+    recip <- dat .: "recipient"
+    rUserId <- recip .: "id"
+    rUserName <- recip .: "username"
+    rDisplayName <- recip .: "display_name"
+    let recipient = UserInfo rUserId rUserName rDisplayName
+
+    timestamp :: Integer <- dat .: "sent_ts"
+    let time = Just . Time.posixSecondsToUTCTime $ realToFrac timestamp
+
+    return WhisperMessage{..}
 
 instance FromJSON Message where
     parseJSON = withObject "Received" $ \o -> do
@@ -495,6 +529,7 @@ instance FromJSON Message where
                            "channel-bits-event-v1" -> parseBitsV1Message m'
                            "channel-bits-event-v2" -> parseBitsV2Message m'
                            "channel-subscribe-events-v1" -> parseChannelSubscribeMessage m'
+                           "whispers" -> parseWhisperMessage d
                            _ -> mzero
            else mzero
 
