@@ -3,7 +3,19 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
-module Web.TwitchAPI.PubSub.Topics where
+{- |
+Module      :  TwitchAPI.PubSub
+Copyright   :  (c) Christina Wuest 2021
+License     :  BSD-style
+
+Maintainer  :  tina@wuest.me
+Stability   :  experimental
+Portability :  non-portable
+
+Messages sent over Twitch's PubSub interface.
+-}
+
+module Web.TwitchAPI.PubSub where
 
 import Prelude
 
@@ -32,7 +44,7 @@ data Topic = BitsV1 { channelId :: Integer }
 toRequest :: Topic -> String
 toRequest BitsV1{..} = ("channel-bits-events-v1." ++) $ show channelId
 toRequest BitsV2{..} = ("channel-bits-events-v2." ++) $ show channelId
-toRequest BitsBadge{..} = ("channel-bits-badge-unlocks-v1." ++) $ show channelId
+toRequest BitsBadge{..} = ("channel-bits-badge-unlocks." ++) $ show channelId
 toRequest ChannelPoints{..} = ("channel-points-channel-v1." ++) $ show channelId
 toRequest ChannelSubscriptions{..} = ("channel-subscribe-events-v1." ++) $ show channelId
 toRequest ChatModeratorActions{..} = "chat_moderator_actions." ++ (show userId) ++ "." ++ (show channelId)
@@ -173,7 +185,6 @@ data Message = BitsV2Message { badge :: Maybe BadgeUnlock
                              , channelId :: Integer
                              , chatMessage :: Maybe String
                              , context :: String
-                             , anonymous :: Bool
                              , messageId :: String
                              , messageType :: String
                              , time :: Maybe Time.UTCTime
@@ -182,6 +193,15 @@ data Message = BitsV2Message { badge :: Maybe BadgeUnlock
                              , userName :: Maybe String
                              , version :: String
                              }
+             | BitsV2AnonymousMessage { bits :: Integer
+                                      , channelId :: Integer
+                                      , chatMessage :: Maybe String
+                                      , context :: String
+                                      , messageId :: String
+                                      , messageType :: String
+                                      , time :: Maybe Time.UTCTime
+                                      , version :: String
+                                      }
              | BitsV1Message { badge :: Maybe BadgeUnlock
                              , bits :: Integer
                              , channelId :: Integer
@@ -282,7 +302,11 @@ data Message = BitsV2Message { badge :: Maybe BadgeUnlock
                               , user :: UserInfo
                               , userColor :: String
                               , recipient :: UserInfo
-                              } deriving ( Eq, Show )
+                              }
+             | SuccessMessage { nonce :: Maybe String }
+             | ErrorMessage { nonce :: Maybe String
+                            , errorString :: String
+                            } deriving ( Eq, Show )
 
 parseChannelSubscribeEvent o = do
     uid :: String <- o .: "user_id"
@@ -389,11 +413,17 @@ parseChannelSubscribeMessage o = do
 
 parseBitsV2Message o = do
     dat <- o .: "data"
+    anonymous :: Maybe Bool <- o .:? "is_anonymous"
+    case anonymous of
+      Nothing      -> parseBitsV2 o dat
+      (Just False) -> parseBitsV2 o dat
+      (Just True)  -> parseBitsV2Anonymous o dat
+
+parseBitsV2 o dat = do
     badge <- dat .: "badge_entitlement"
     bits <- dat .: "bits_used"
     chatMessage <- dat .: "chat_message"
     context <- dat .: "context"
-    anonymous <- o .: "is_anonymous"
     messageId <- o .: "message_id"
     messageType <- o .: "message_type" -- Always bits_event?  No other examples given in API docs
     userTotal <- dat .: "total_bits_used"
@@ -410,6 +440,22 @@ parseBitsV2Message o = do
     let time = Time.zonedTimeToUTC <$> Time.parseTimeRFC3339 t
 
     return BitsV2Message{..}
+
+parseBitsV2Anonymous o dat = do
+    bits <- dat .: "bits_used"
+    chatMessage <- dat .: "chat_message"
+    context <- dat .: "context"
+    messageId <- o .: "message_id"
+    messageType <- o .: "message_type" -- Always bits_event?  No other examples given in API docs
+    version <- o .: "version"
+
+    channel :: String <- dat .: "channel_id"
+    let channelId = read channel :: Integer
+
+    t :: String <- dat .: "time"
+    let time = Time.zonedTimeToUTC <$> Time.parseTimeRFC3339 t
+
+    return BitsV2AnonymousMessage{..}
 
 parseBitsV1Message o = do
     dat <- o .: "data"
@@ -488,7 +534,7 @@ parseRewardMessage o =  do
 
     return ChannelPointsMessage{..}
 
-parseWhisperMessage o =  do
+parseWhisperMessage o = do
     dat <- o .: "data_object"
     messageId <- dat .: "message_id"
     threadId <- dat .: "thread_id"
@@ -513,25 +559,32 @@ parseWhisperMessage o =  do
 
     return WhisperMessage{..}
 
+parseServerResponse o = do
+    errorString <- o .: "error"
+    nonce <- o .: "nonce"
+    if null errorString
+       then return SuccessMessage{..}
+       else return ErrorMessage{..}
+
 instance FromJSON Message where
     parseJSON = withObject "Received" $ \o -> do
-        (reportedType :: String) <- o .: "type"
-        if reportedType == "MESSAGE"
-           then do
-               d <- o .: "data"
-               m <- d .: "message"
-               m' <- withEmbeddedJSON "Message" parseJSON (JSON.String m)
-               m' .: "type" >>= \(message :: String) ->
-                   case message of
-                       "reward-redeemed" -> parseRewardMessage m'
-                       _ -> m' .: "topic" >>= \(topic :: String) -> case takeWhile (/= '.') topic of
-                           "channel-bits-badge-unlocks" -> parseBitsBadgeMessage m'
-                           "channel-bits-event-v1" -> parseBitsV1Message m'
-                           "channel-bits-event-v2" -> parseBitsV2Message m'
-                           "channel-subscribe-events-v1" -> parseChannelSubscribeMessage m'
-                           "whispers" -> parseWhisperMessage d
-                           _ -> mzero
-           else mzero
+        o .: "type" >>= \(reportedType :: String) -> case reportedType of
+            "RESPONSE" -> parseServerResponse o
+            "MESSAGE" -> do
+                d <- o .: "data"
+                m <- d .: "message"
+                m' <- withEmbeddedJSON "Message" parseJSON (JSON.String m)
+                m' .:? "type" >>= \(message :: Maybe String) ->
+                    case message of
+                        Just "reward-redeemed" -> parseRewardMessage m'
+                        _ -> d .: "topic" >>= \(topic :: String) -> case takeWhile (/= '.') topic of
+                            "channel-bits-badge-unlocks" -> parseBitsBadgeMessage m'
+                            "channel-bits-events-v1" -> parseBitsV1Message m'
+                            "channel-bits-events-v2" -> parseBitsV2Message m'
+                            "channel-subscribe-events-v1" -> parseChannelSubscribeMessage m'
+                            "whispers" -> parseWhisperMessage d
+                            _ -> mzero
+            _ -> mzero
 
 --data ChatModeratorActionsMessage
 --data WhispersMessage
