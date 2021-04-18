@@ -177,7 +177,10 @@ data SubscriptionMessage = SubscriptionMessage { messageBody :: String
 instance FromJSON SubscriptionMessage where
     parseJSON = withObject "SubscriptionMessage" $ \o -> do
         messageBody <- o .: "message"
-        emotes <- o .: "emotes"
+        emotes' <- o .:? "emotes"
+        let emotes = case emotes' of
+                         Nothing -> []
+                         Just xs -> xs
         return SubscriptionMessage{..}
 
 data Message = BitsV2Message { badge :: Maybe BadgeUnlock
@@ -259,9 +262,20 @@ data Message = BitsV2Message { badge :: Maybe BadgeUnlock
                                             , subTier :: SubscriptionTier
                                             , subPlanName :: String
                                             , totalMonths :: Integer
-                                            , streakMonths :: Integer
+                                            , streakMonths :: Maybe Integer
                                             , subMessage :: SubscriptionMessage
                                             }
+             | ChannelExtendSubscriptionMessage { user :: UserInfo
+                                                , channelName :: String
+                                                , channelId :: Integer
+                                                , time :: Maybe Time.UTCTime
+                                                , subTier :: SubscriptionTier
+                                                , subPlanName :: String
+                                                , totalMonths :: Integer
+                                                , streakMonths :: Maybe Integer
+                                                , endMonth :: Integer
+                                                , subMessage :: SubscriptionMessage
+                                                }
              | ChannelSubscriptionGiftMessage { user :: UserInfo
                                               , channelName :: String
                                               , channelId :: Integer
@@ -345,10 +359,33 @@ parseChannelResubscribeEvent o = do
     subTier <- o .: "sub_plan"
     subPlanName <- o .: "sub_plan_name"
     totalMonths <- o .: "cumulative_months"
-    streakMonths <- o .: "streak_months"
+    streakMonths <- o .:? "streak_months"
     subMessage <- o .: "sub_message"
 
     return ChannelResubscriptionMessage{..}
+
+parseChannelExtendSubEvent o = do
+    uid :: String <- o .: "user_id"
+    userName <- o .: "user_name"
+    displayName <- o .: "display_name"
+    let userId = read uid :: Integer
+        user = UserInfo userId userName displayName
+
+    channelName <- o .: "channel_name"
+    channel <- o .: "channel_id"
+    let channelId = read channel :: Integer
+
+    t :: String <- o .: "time"
+    let time = Time.zonedTimeToUTC <$> Time.parseTimeRFC3339 t
+
+    subTier <- o .: "sub_plan"
+    subPlanName <- o .: "sub_plan_name"
+    totalMonths <- o .: "cumulative_months"
+    endMonth <- o .: "benefit_end_month"
+    streakMonths <- o .:? "streak_months"
+    subMessage <- o .: "sub_message"
+
+    return ChannelExtendSubscriptionMessage{..}
 
 parseChannelSubGiftEvent o = do
     uid :: String <- o .: "user_id"
@@ -405,6 +442,7 @@ parseChannelSubscribeMessage o = do
     case context of
       "sub" -> parseChannelSubscribeEvent o
       "resub" -> parseChannelResubscribeEvent o
+      "extendsub" -> parseChannelExtendSubEvent o
       "subgift" -> parseChannelSubGiftEvent o
       "resubgift" -> parseChannelSubGiftEvent o
       "anonsubgift" -> parseChannelAnonSubGiftEvent o
