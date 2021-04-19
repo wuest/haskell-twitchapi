@@ -20,7 +20,7 @@ module Web.TwitchAPI.PubSub where
 import Prelude
 
 import qualified Data.Time             as Time
-import qualified Data.Time.RFC3339     as Time ( formatTimeRFC3339, parseTimeRFC3339 )
+import qualified Data.Time.RFC3339     as Time ( parseTimeRFC3339 )
 import qualified Data.Time.Clock.POSIX as Time ( POSIXTime, posixSecondsToUTCTime )
 
 import Data.Aeson ( FromJSON(..), (.:), (.:?), withObject, withText, withEmbeddedJSON
