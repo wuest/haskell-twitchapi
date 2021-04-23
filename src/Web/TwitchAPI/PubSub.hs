@@ -620,7 +620,7 @@ instance FromJSON Message where
                             "channel-bits-events-v1" -> parseBitsV1Message m'
                             "channel-bits-events-v2" -> parseBitsV2Message m'
                             "channel-subscribe-events-v1" -> parseChannelSubscribeMessage m'
-                            "whispers" -> parseWhisperMessage d
+                            "whispers" -> parseWhisperMessage m'
                             _ -> mzero
             _ -> mzero
 
