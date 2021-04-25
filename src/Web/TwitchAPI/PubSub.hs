@@ -412,8 +412,9 @@ parseChannelSubGiftEvent o = do
 
     duration :: Maybe Integer <- o .: "multi_month_duration"
     case duration of
+        Nothing -> return ChannelSubscriptionGiftMessage{..}
+        Just 1 -> return ChannelSubscriptionGiftMessage{..}
         Just months -> return ChannelMultiMonthSubscriptionGiftMessage{..}
-        _ -> return ChannelSubscriptionGiftMessage{..}
 
 parseChannelAnonSubGiftEvent o = do
     rid :: String <- o .: "recipient_id"
@@ -434,8 +435,9 @@ parseChannelAnonSubGiftEvent o = do
 
     duration :: Maybe Integer <- o .: "multi_month_duration"
     case duration of
+        Nothing -> return ChannelAnonymousSubscriptionGiftMessage{..}
+        Just 1 -> return ChannelAnonymousSubscriptionGiftMessage{..}
         Just months -> return ChannelAnonymousMultiMonthSubscriptionGiftMessage{..}
-        _ -> return ChannelAnonymousSubscriptionGiftMessage{..}
 
 parseChannelSubscribeMessage o = do
     context :: String <- o .: "context"

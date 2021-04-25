@@ -54,6 +54,20 @@ instance Arbitrary RFC3339 where
 parseJSON :: JSON.FromJSON a => String -> Either String a
 parseJSON x = JSON.eitherDecode $ (BS.fromStrict . T.encodeUtf8 . T.pack) x
 
+-- Twitch Constants
+
+anonymousUserID :: Integer
+anonymousUserID = 274598607 
+
+anonymousUserName :: String
+anonymousUserName = "ananonymousgifter"
+
+anonymousUserDisplay :: String
+anonymousUserDisplay = "An Anonymous Gifter"
+
+anonymousUser :: Web.TwitchAPI.PubSub.UserInfo
+anonymousUser = Web.TwitchAPI.PubSub.UserInfo anonymousUserID anonymousUserName (Just anonymousUserDisplay)
+
 -- Server Responses
 
 successResponseJSON :: String -> String
@@ -68,6 +82,13 @@ bitsV2JSON :: String -> String -> String -> String -> String -> String -> Intege
 bitsV2JSON u c uid cid time msg bits total mid Nothing = "{\"type\":\"MESSAGE\",\"data\":{\"topic\":\"channel-bits-events-v2.0\",\"message\":\"{\\\"data\\\":{\\\"user_name\\\":\\\"" ++ u ++ "\\\",\\\"channel_name\\\":\\\"" ++ c ++ "\\\",\\\"user_id\\\":\\\"" ++ uid ++ "\\\",\\\"channel_id\\\":\\\"" ++ cid ++ "\\\",\\\"time\\\":\\\"" ++ time ++ "\\\",\\\"chat_message\\\":\\\"" ++ msg ++ "\\\",\\\"bits_used\\\":" ++ (show bits) ++ ",\\\"total_bits_used\\\":" ++ (show total) ++ ",\\\"is_anonymous\\\":false,\\\"context\\\":\\\"cheer\\\",\\\"badge_entitlement\\\":null},\\\"version\\\":\\\"1.0\\\",\\\"message_type\\\":\\\"bits_event\\\",\\\"message_id\\\":\\\"" ++ mid ++ "\\\"}\"}}"
 bitsV2JSON u c uid cid time msg bits total mid (Just (nb, pb)) = "{\"type\":\"MESSAGE\",\"data\":{\"topic\":\"channel-bits-events-v2.0\",\"message\":\"{\\\"data\\\":{\\\"user_name\\\":\\\"" ++ u ++ "\\\",\\\"channel_name\\\":\\\"" ++ c ++ "\\\",\\\"user_id\\\":\\\"" ++ uid ++ "\\\",\\\"channel_id\\\":\\\"" ++ cid ++ "\\\",\\\"time\\\":\\\"" ++ time ++ "\\\",\\\"chat_message\\\":\\\"" ++ msg ++ "\\\",\\\"bits_used\\\":" ++ (show bits) ++ ",\\\"total_bits_used\\\":" ++ (show total) ++ ",\\\"is_anonymous\\\":false,\\\"context\\\":\\\"cheer\\\",\\\"badge_entitlement\\\":{\\\"new_version\\\":" ++ (show nb) ++ ", \\\"previous_version\\\":" ++ (show pb) ++ "}},\\\"version\\\":\\\"1.0\\\",\\\"message_type\\\":\\\"bits_event\\\",\\\"message_id\\\":\\\"" ++ mid ++ "\\\"}\"}}"
 
+-- Subscription Messages
+singleMonthAnonymousGiftMessageJSON :: String -> String -> String -> String -> String -> String -> String -> String -> Integer -> String
+singleMonthAnonymousGiftMessageJSON channelName cid recipuid recipun recipdisplay time subplan subplanName months = "{\"type\":\"MESSAGE\",\"data\":{\"topic\":\"channel-subscribe-events-v1.0\",\"message\":\"{\\\"benefit_end_month\\\":0,\\\"user_name\\\":\\\"ananonymousgifter\\\",\\\"display_name\\\":\\\"An Anonymous Gifter\\\",\\\"channel_name\\\":\\\"" ++ channelName ++ "\\\",\\\"user_id\\\":\\\"274598607\\\",\\\"channel_id\\\":\\\"" ++ cid ++ "\\\",\\\"recipient_id\\\":\\\"" ++ recipuid ++ "\\\",\\\"recipient_user_name\\\":\\\"" ++ recipun ++ "\\\",\\\"recipient_display_name\\\":\\\"" ++ recipdisplay ++ "\\\",\\\"time\\\":\\\"" ++ time ++ "\\\",\\\"sub_message\\\":{\\\"message\\\":\\\"\\\",\\\"emotes\\\":null},\\\"sub_plan\\\":\\\"" ++ subplan ++ "\\\",\\\"sub_plan_name\\\":\\\"" ++ subplanName ++ "\\\",\\\"months\\\":" ++ (show months) ++ ",\\\"context\\\":\\\"subgift\\\",\\\"is_gift\\\":true,\\\"multi_month_duration\\\":1}\"}}\r\n"
+
+singleMonthGiftMessageJSON :: String -> String -> String -> String -> String -> String -> String -> String -> String -> String -> String -> Integer -> String
+singleMonthGiftMessageJSON channelName cid senderuid senderun senderdisplay recipuid recipun recipdisplay time subplan subplanName months = "{\"type\":\"MESSAGE\",\"data\":{\"topic\":\"channel-subscribe-events-v1.0\",\"message\":\"{\\\"benefit_end_month\\\":0,\\\"user_name\\\":\\\"" ++ senderun ++ "\\\",\\\"display_name\\\":\\\"" ++ senderdisplay ++ "\\\",\\\"channel_name\\\":\\\"" ++ channelName ++ "\\\",\\\"user_id\\\":\\\"" ++ senderuid ++ "\\\",\\\"channel_id\\\":\\\"" ++ cid ++ "\\\",\\\"recipient_id\\\":\\\"" ++ recipuid ++ "\\\",\\\"recipient_user_name\\\":\\\"" ++ recipun ++ "\\\",\\\"recipient_display_name\\\":\\\"" ++ recipdisplay ++ "\\\",\\\"time\\\":\\\"" ++ time ++ "\\\",\\\"sub_message\\\":{\\\"message\\\":\\\"\\\",\\\"emotes\\\":null},\\\"sub_plan\\\":\\\"" ++ subplan ++ "\\\",\\\"sub_plan_name\\\":\\\"" ++ subplanName ++ "\\\",\\\"months\\\":" ++ (show months) ++ ",\\\"context\\\":\\\"subgift\\\",\\\"is_gift\\\":true,\\\"multi_month_duration\\\":1}\"}}\r\n"
+
 -- Whisper Messages
 whisperJSON :: String -> Integer -> String -> Integer -> Integer -> String -> String -> String -> [(Integer, Integer, Integer)] -> Integer -> String -> String -> String -> String
 whisperJSON    mid serial msg epoch senderuid senderun senderdisplay sendercolor emote3s recipuid recipun recipdisplay nonce =
@@ -80,6 +101,8 @@ main = hspec $ describe "PubSub interactions" $ do
     it "Creates SuccessResponses" $ property prop_successResponse
     it "Creates ErrorResponses" $ property prop_errorResponse
     it "Parses Bits (v2) Messages" $ property prop_errorResponse
+    it "Parses Gift Single-Month Subscription Messages" $ property prop_singleMonthGiftMessage
+    it "Parses Anonymous Gift Single-Month Subscription Messages" $ property prop_singleMonthAnonymousGiftMessage
     it "Parses Whisper Messages" $ property prop_whisperMessage
 
 prop_successResponse :: AlphaNumericString -> Bool
@@ -117,6 +140,36 @@ prop_bitsV2Message un' cn' uid' cid' time' msg' bits total mid' unlock' =
         response = Right $ Web.TwitchAPI.PubSub.BitsV2Message unlock bits (read cid :: Integer) (Just msg) context mid messageType utcTime total (Just (read uid :: Integer)) (Just un) version
         parsed = parseJSON json :: Either String Web.TwitchAPI.PubSub.Message
     in response == parsed
+
+prop_singleMonthGiftMessage :: NumericString -> AlphaNumericString -> AlphaNumericString -> AlphaNumericString -> NumericString -> NumericString -> AlphaNumericString -> AlphaNumericString -> RFC3339 -> Integer -> AlphaNumericString -> Integer -> Bool
+prop_singleMonthGiftMessage senderuid' senderun' senderdisplay' channelName' cid' recipuid' recipun' recipdisplay' time' subplan' subplanName' months' =
+    let channelName = unwrapAlphaNumeric channelName'
+        cid = unwrapNumeric cid'
+        senderuid = unwrapNumeric senderuid'
+        senderun = unwrapAlphaNumeric senderun'
+        senderdisplay = unwrapAlphaNumeric senderdisplay'
+        recipuid = unwrapNumeric recipuid'
+        recipun = unwrapAlphaNumeric recipun'
+        recipdisplay = unwrapAlphaNumeric recipdisplay'
+        time = unwrapDate time'
+        utcTime = Time.zonedTimeToUTC <$> Time.parseTimeRFC3339 time
+        subplan = show $ 1000 * (((abs subplan') `mod` 3) + 1)
+        subplanName = unwrapAlphaNumeric subplanName'
+        subTier = case (((abs subplan') `mod` 3) + 1) of
+            1 -> Web.TwitchAPI.PubSub.Tier1
+            2 -> Web.TwitchAPI.PubSub.Tier2
+            3 -> Web.TwitchAPI.PubSub.Tier3
+        months = ((abs months') + 1)
+        recipInfo = Web.TwitchAPI.PubSub.UserInfo (read recipuid :: Integer) recipun (Just recipdisplay)
+        senderInfo = Web.TwitchAPI.PubSub.UserInfo (read senderuid :: Integer) senderun (Just senderdisplay)
+        json = singleMonthGiftMessageJSON channelName cid senderuid senderun senderdisplay recipuid recipun recipdisplay time subplan subplanName months
+        response = Right $ Web.TwitchAPI.PubSub.ChannelSubscriptionGiftMessage senderInfo channelName (read cid :: Integer) utcTime subTier subplanName recipInfo
+        parsed = parseJSON json :: Either String Web.TwitchAPI.PubSub.Message
+    in response == parsed
+
+prop_singleMonthAnonymousGiftMessage :: AlphaNumericString -> NumericString -> NumericString -> AlphaNumericString -> AlphaNumericString -> RFC3339 -> Integer -> AlphaNumericString -> Integer -> Bool
+prop_singleMonthAnonymousGiftMessage =
+    prop_singleMonthGiftMessage (NumericString $ show anonymousUserID) (AlphaNumericString anonymousUserName) (AlphaNumericString anonymousUserDisplay)
 
 prop_whisperMessage :: AlphaNumericString -> Integer -> AlphaNumericString -> Integer -> Integer -> AlphaNumericString -> AlphaNumericString -> AlphaNumericString -> [(Integer, Integer, Integer)] -> Integer -> AlphaNumericString -> AlphaNumericString -> NumericString -> Bool
 prop_whisperMessage mid' serial msg' epoch' senderuid senderun' senderdisplay' sendercolor' emote3s recipuid recipun' recipdisplay' nonce' =
