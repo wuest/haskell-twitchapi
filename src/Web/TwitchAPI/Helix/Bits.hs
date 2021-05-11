@@ -7,20 +7,31 @@ module Web.TwitchAPI.Helix.Bits where
 
 import Prelude
 
+import qualified Data.ByteString     as BS
 import qualified Data.Time           as Time
 import qualified Data.Time.RFC3339   as Time ( formatTimeRFC3339, parseTimeRFC3339 )
 import qualified Data.Text           as Text
+import qualified Data.Text.Encoding  as Text ( encodeUtf8 )
+import qualified Network.HTTP.Client as HTTP
 
 import Data.Aeson ( FromJSON(..), (.:), withObject
                   , ToJSON(..), (.=), object
                   , Object
                   )
+import Data.Maybe ( fromMaybe )
 
 leaderboardScope :: String
 leaderboardScope = "bits:read"
 
-leaderboardRequest :: (String, String)
-leaderboardRequest = ("GET", "https://api.twitch.tv/helix/bits/leaderboard")
+leaderboardRequest :: LeaderboardRequest -> HTTP.Request
+leaderboardRequest params =
+    let req = HTTP.parseRequest_ "GET https://api.twitch.tv/helix/bits/leaderboard"
+        count'     :: [(BS.ByteString, Maybe BS.ByteString)] = fromMaybe [] $ (\c -> ("count", Just . Text.encodeUtf8 . Text.pack . show $ c):[]) <$> (count params)
+        period'    :: [(BS.ByteString, Maybe BS.ByteString)] = fromMaybe [] $ (\p -> ("period", Just . Text.encodeUtf8 . Text.pack . show $ p):[]) <$> (period params)
+        startedAt' :: [(BS.ByteString, Maybe BS.ByteString)] = fromMaybe [] $ (\s -> ("started_at", Just . Text.encodeUtf8 $ (Time.formatTimeRFC3339 $ Time.utcToZonedTime Time.utc s :: Text.Text)):[]) <$> (startedAt (params :: LeaderboardRequest))
+        userId'    :: [(BS.ByteString, Maybe BS.ByteString)] = fromMaybe [] $ (\u -> ("user_id", Just . Text.encodeUtf8 . Text.pack . show $ u):[]) <$> (userId (params :: LeaderboardRequest))
+        query = foldl (++) [] [count', period', startedAt', userId']
+    in  HTTP.setQueryString query req
 
 data Period = Day | Week | Month | Year | All deriving ( Eq )
 instance Show Period where
@@ -30,19 +41,11 @@ instance Show Period where
     show Year  = "year"
     show All   = "all"
 
-data Leaderboard = Leaderboard { count     :: Maybe Integer
-                               , period    :: Maybe Period
-                               , startedAt :: Maybe Time.UTCTime
-                               , userId    :: Maybe Integer
-                               } deriving ( Show, Eq )
-
-instance ToJSON Leaderboard where
-    toJSON Leaderboard{..} =
-        object [ "count"      .= (show <$> count)
-               , "period"     .= (Text.pack . show <$> period)
-               , "started_at" .= (Text.pack . Time.formatTimeRFC3339 . (Time.utcToZonedTime Time.utc) <$> startedAt)
-               , "userId"     .= (Text.pack . show <$> userId)
-               ]
+data LeaderboardRequest = LeaderboardRequest { count     :: Maybe Integer
+                                             , period    :: Maybe Period
+                                             , startedAt :: Maybe Time.UTCTime
+                                             , userId    :: Maybe Integer
+                                             } deriving ( Show, Eq )
 
 data LeaderboardEntry = LeaderboardEntry { userId    :: Integer
                                          , userLogin :: String
@@ -82,13 +85,13 @@ instance FromJSON LeaderboardResponse where
 cheermotesScope :: String
 cheermotesScope = ""
 
-cheermotesRequest :: (String, String)
-cheermotesRequest = ("GET", "https://api.twitch.tv/helix/bits/cheermotes")
+cheermotesRequest :: CheermotesRequest -> HTTP.Request
+cheermotesRequest params =
+    let req = HTTP.parseRequest_ "GET https://api.twitch.tv/helix/bits/cheermotes"
+        broadcasterId' :: [(BS.ByteString, Maybe BS.ByteString)] = ("broadcaster_id", Just . Text.encodeUtf8 . Text.pack . show $ broadcasterId params):[]
+    in  HTTP.setQueryString broadcasterId' req
 
-data Cheermotes = Cheermotes { broadcasterId :: Integer } deriving ( Show, Eq )
-
-instance ToJSON Cheermotes where
-    toJSON Cheermotes{..} = object [ "broadcaster_id" .= (show broadcasterId) ]
+data CheermotesRequest = CheermotesRequest { broadcasterId :: Integer } deriving ( Show, Eq )
 
 data CheermoteClass = GlobalFirstParty | GlobalThirdParty | ChannelCustom | DisplayOnly | Sponsored | Unknown deriving ( Eq, Show )
 
