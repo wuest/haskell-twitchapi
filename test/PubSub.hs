@@ -57,7 +57,7 @@ parseJSON x = JSON.eitherDecode $ (BS.fromStrict . T.encodeUtf8 . T.pack) x
 -- Twitch Constants
 
 anonymousUserID :: Integer
-anonymousUserID = 274598607 
+anonymousUserID = 274598607
 
 anonymousUserName :: String
 anonymousUserName = "ananonymousgifter"
@@ -89,18 +89,23 @@ singleMonthAnonymousGiftMessageJSON channelName cid recipuid recipun recipdispla
 singleMonthGiftMessageJSON :: String -> String -> String -> String -> String -> String -> String -> String -> String -> String -> String -> Integer -> String
 singleMonthGiftMessageJSON channelName cid senderuid senderun senderdisplay recipuid recipun recipdisplay time subplan subplanName months = "{\"type\":\"MESSAGE\",\"data\":{\"topic\":\"channel-subscribe-events-v1.0\",\"message\":\"{\\\"benefit_end_month\\\":0,\\\"user_name\\\":\\\"" ++ senderun ++ "\\\",\\\"display_name\\\":\\\"" ++ senderdisplay ++ "\\\",\\\"channel_name\\\":\\\"" ++ channelName ++ "\\\",\\\"user_id\\\":\\\"" ++ senderuid ++ "\\\",\\\"channel_id\\\":\\\"" ++ cid ++ "\\\",\\\"recipient_id\\\":\\\"" ++ recipuid ++ "\\\",\\\"recipient_user_name\\\":\\\"" ++ recipun ++ "\\\",\\\"recipient_display_name\\\":\\\"" ++ recipdisplay ++ "\\\",\\\"time\\\":\\\"" ++ time ++ "\\\",\\\"sub_message\\\":{\\\"message\\\":\\\"\\\",\\\"emotes\\\":null},\\\"sub_plan\\\":\\\"" ++ subplan ++ "\\\",\\\"sub_plan_name\\\":\\\"" ++ subplanName ++ "\\\",\\\"months\\\":" ++ (show months) ++ ",\\\"context\\\":\\\"subgift\\\",\\\"is_gift\\\":true,\\\"multi_month_duration\\\":1}\"}}\r\n"
 
+singleMonthResubMessageWithEmotesJSON :: String -> String -> String -> String -> String -> String -> String -> String -> Integer -> String
+singleMonthResubMessageWithEmotesJSON subun subdisplay channelName subuid cid time subplan subplanName cumulativeMonths = "{\"type\":\"MESSAGE\",\"data\":{\"topic\":\"channel-subscribe-events-v1.0\",\"message\":\"{\\\"benefit_end_month\\\":0,\\\"user_name\\\":\\\"" ++ subun ++ "\\\",\\\"display_name\\\":\\\"" ++ subdisplay ++ "\\\",\\\"channel_name\\\":\\\"" ++ channelName ++ "\\\",\\\"user_id\\\":\\\"" ++ subuid ++ "\\\",\\\"channel_id\\\":\\\"" ++ cid ++ "\\\",\\\"time\\\":\\\"" ++ time ++ "\\\",\\\"sub_message\\\":{\\\"message\\\":\\\"thaxHi\\\",\\\"emotes\\\":[{\\\"start\\\":0,\\\"end\\\":5,\\\"id\\\":\\\"846333\\\"}]},\\\"sub_plan\\\":\\\"" ++ subplan ++ "\\\",\\\"sub_plan_name\\\":\\\"" ++ subplanName ++ "\\\",\\\"months\\\":0,\\\"cumulative_months\\\":" ++ (show cumulativeMonths) ++ ",\\\"context\\\":\\\"resub\\\",\\\"is_gift\\\":false,\\\"multi_month_duration\\\":0}\"}}\r\n"
+
 -- Whisper Messages
 whisperJSON :: String -> Integer -> String -> Integer -> Integer -> String -> String -> String -> [(Integer, Integer, Integer)] -> Integer -> String -> String -> String -> String
 whisperJSON    mid serial msg epoch senderuid senderun senderdisplay sendercolor emote3s recipuid recipun recipdisplay nonce =
-    let emotes = "[" ++ (List.intercalate "," $ fmap (\(start, end, emoteId) -> "{\\\"start\\\":" ++ (show start) ++ ",\\\"end\\\":" ++ (show end) ++ ",\\\"id\\\":" ++ (show emoteId) ++"}") emote3s) ++ "]"
-        emotes' = "[" ++ (List.intercalate "," $ fmap (\(start, end, emoteId) -> "{\\\\\\\"start\\\\\\\":" ++ (show start) ++ ",\\\\\\\"end\\\\\\\":" ++ (show end) ++ ",\\\\\\\"id\\\\\\\":" ++ (show emoteId) ++"}") emote3s) ++ "]"
+    let emotes = "[" ++ (List.intercalate "," $ fmap (\(start, end, emoteId) -> "{\\\"emote_id\\\":\\\"" ++ (show emoteId) ++ "\\\",\\\"start\\\":" ++ (show start) ++ ",\\\"end\\\":" ++ (show end) ++ "}") emote3s) ++ "]"
+        emotes' = "[" ++ (List.intercalate "," $ fmap (\(start, end, emoteId) -> "{\\\\\\\"emote_id\\\\\\\":\\\\\\\"" ++ (show emoteId) ++ "\\\\\\\",\\\\\\\"start\\\\\\\":" ++ (show start) ++ ",\\\\\\\"end\\\\\\\":" ++ (show end) ++ "}") emote3s) ++ "]"
     in "{\"type\":\"MESSAGE\",\"data\":{\"topic\":\"whispers.0\",\"message\":\"{\\\"type\\\":\\\"whisper_received\\\",\\\"data\\\":\\\"{\\\\\\\"message_id\\\\\\\":\\\\\\\"" ++ mid ++ "\\\\\\\",\\\\\\\"id\\\\\\\":" ++ (show serial) ++ ",\\\\\\\"thread_id\\\\\\\":\\\\\\\"" ++ ((show senderuid) ++ "_" ++ (show recipuid)) ++ "\\\\\\\",\\\\\\\"body\\\\\\\":\\\\\\\"" ++ msg ++ "\\\\\\\",\\\\\\\"sent_ts\\\\\\\":" ++ (show epoch) ++ ",\\\\\\\"from_id\\\\\\\":" ++ (show senderuid) ++ ",\\\\\\\"tags\\\\\\\":{\\\\\\\"login\\\\\\\":\\\\\\\"" ++ senderun ++ "\\\\\\\",\\\\\\\"display_name\\\\\\\":\\\\\\\"" ++ senderdisplay ++ "\\\\\\\",\\\\\\\"color\\\\\\\":\\\\\\\"#" ++ sendercolor ++ "\\\\\\\",\\\\\\\"emotes\\\\\\\":" ++ emotes' ++ ",\\\\\\\"badges\\\\\\\":[{\\\\\\\"id\\\\\\\":\\\\\\\"notimplementedyetimsorry\\\\\\\",\\\\\\\"version\\\\\\\":\\\\\\\"1\\\\\\\"}]},\\\\\\\"recipient\\\\\\\":{\\\\\\\"id\\\\\\\":" ++ (show recipuid) ++ ",\\\\\\\"username\\\\\\\":\\\\\\\"" ++ recipun ++ "\\\\\\\",\\\\\\\"display_name\\\\\\\":\\\\\\\"" ++ recipdisplay ++ "\\\\\\\",\\\\\\\"color\\\\\\\":\\\\\\\"\\\\\\\"},\\\\\\\"nonce\\\\\\\":\\\\\\\"" ++ nonce ++ "\\\\\\\"}\\\",\\\"data_object\\\":{\\\"message_id\\\":\\\"" ++ mid ++ "\\\",\\\"id\\\":" ++ (show serial) ++ ",\\\"thread_id\\\":\\\"" ++ ((show senderuid) ++ "_" ++ (show recipuid)) ++ "\\\",\\\"body\\\":\\\"" ++ msg ++ "\\\",\\\"sent_ts\\\":" ++ (show epoch) ++ ",\\\"from_id\\\":" ++ (show senderuid) ++ ",\\\"tags\\\":{\\\"login\\\":\\\"" ++ senderun ++ "\\\",\\\"display_name\\\":\\\"" ++ senderdisplay ++ "\\\",\\\"color\\\":\\\"#" ++ sendercolor ++ "\\\",\\\"emotes\\\":" ++ emotes ++ ",\\\"badges\\\":[{\\\"id\\\":\\\"notimplementedyetimsorry\\\",\\\"version\\\":\\\"1\\\"}]},\\\"recipient\\\":{\\\"id\\\":" ++ (show recipuid) ++ ",\\\"username\\\":\\\"" ++ recipun ++ "\\\",\\\"display_name\\\":\\\"" ++ recipdisplay ++ "\\\",\\\"color\\\":\\\"\\\"},\\\"nonce\\\":\\\"" ++ nonce ++ "\\\"}}\"}}"
+
 
 main :: IO ()
 main = hspec $ describe "PubSub interactions" $ do
     it "Creates SuccessResponses" $ property prop_successResponse
     it "Creates ErrorResponses" $ property prop_errorResponse
     it "Parses Bits (v2) Messages" $ property prop_errorResponse
+    it "Parses Gift Single-Month Resubscription Messages with Emotes" $ property prop_singleMonthResubMessageWithEmote
     it "Parses Gift Single-Month Subscription Messages" $ property prop_singleMonthGiftMessage
     it "Parses Anonymous Gift Single-Month Subscription Messages" $ property prop_singleMonthAnonymousGiftMessage
     it "Parses Whisper Messages" $ property prop_whisperMessage
@@ -171,6 +176,30 @@ prop_singleMonthAnonymousGiftMessage :: AlphaNumericString -> NumericString -> N
 prop_singleMonthAnonymousGiftMessage =
     prop_singleMonthGiftMessage (NumericString $ show anonymousUserID) (AlphaNumericString anonymousUserName) (AlphaNumericString anonymousUserDisplay)
 
+prop_singleMonthResubMessageWithEmote :: NumericString -> AlphaNumericString -> AlphaNumericString -> AlphaNumericString -> NumericString -> RFC3339 -> Integer -> AlphaNumericString -> Integer -> Bool
+prop_singleMonthResubMessageWithEmote subuid' subun' subdisplay' channelName' cid' time' subplan' subplanName' cumulativeMonths' =
+    let channelName = unwrapAlphaNumeric channelName'
+        cid = unwrapNumeric cid'
+        subuid = unwrapNumeric subuid'
+        subun = unwrapAlphaNumeric subun'
+        subdisplay = unwrapAlphaNumeric subdisplay'
+        time = unwrapDate time'
+        utcTime = Time.zonedTimeToUTC <$> Time.parseTimeRFC3339 time
+        subplan = show $ 1000 * (((abs subplan') `mod` 3) + 1)
+        subplanName = unwrapAlphaNumeric subplanName'
+        subTier = case (((abs subplan') `mod` 3) + 1) of
+            1 -> Web.TwitchAPI.PubSub.Tier1
+            2 -> Web.TwitchAPI.PubSub.Tier2
+            3 -> Web.TwitchAPI.PubSub.Tier3
+        cumulativeMonths = ((abs cumulativeMonths') + 1)
+        streakMonths = Nothing -- hardcoded in JSON
+        subInfo = Web.TwitchAPI.PubSub.UserInfo (read subuid :: Integer) subun (Just subdisplay)
+        subMessage = Web.TwitchAPI.PubSub.SubscriptionMessage "thaxHi" [ Web.TwitchAPI.PubSub.EmoteSpec 0 6 846333 ]
+        json = singleMonthResubMessageWithEmotesJSON subun subdisplay channelName subuid cid time subplan subplanName cumulativeMonths
+        response = Right $ Web.TwitchAPI.PubSub.ChannelResubscriptionMessage subInfo channelName (read cid :: Integer) utcTime subTier subplanName cumulativeMonths streakMonths subMessage
+        parsed = parseJSON json :: Either String Web.TwitchAPI.PubSub.Message
+    in response == parsed
+
 prop_whisperMessage :: AlphaNumericString -> Integer -> AlphaNumericString -> Integer -> Integer -> AlphaNumericString -> AlphaNumericString -> AlphaNumericString -> [(Integer, Integer, Integer)] -> Integer -> AlphaNumericString -> AlphaNumericString -> NumericString -> Bool
 prop_whisperMessage mid' serial msg' epoch' senderuid senderun' senderdisplay' sendercolor' emote3s recipuid recipun' recipdisplay' nonce' =
     let mid = unwrapAlphaNumeric mid'
@@ -184,7 +213,7 @@ prop_whisperMessage mid' serial msg' epoch' senderuid senderun' senderdisplay' s
         nonce = unwrapNumeric nonce'
         threadId = ((show senderuid) ++ "_" ++ (show recipuid))
         time = Just . Time.posixSecondsToUTCTime $ realToFrac $ epoch
-        emotes = fmap (\(s, e, i) -> Web.TwitchAPI.PubSub.EmoteSpec s e i) emote3s
+        emotes = fmap (\(s, e, i) -> Web.TwitchAPI.PubSub.EmoteSpec s (1 + e - s) i) emote3s
         senderInfo = Web.TwitchAPI.PubSub.UserInfo senderuid senderun (Just senderdisplay)
         recipInfo = Web.TwitchAPI.PubSub.UserInfo recipuid recipun (Just recipdisplay)
         json = whisperJSON mid serial msg epoch senderuid senderun senderdisplay sendercolor emote3s recipuid recipun recipdisplay nonce

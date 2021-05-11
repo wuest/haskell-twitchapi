@@ -28,7 +28,7 @@ import Data.Aeson ( FromJSON(..), (.:), (.:?), withObject, withText, withEmbedde
                   , Object
                   )
 
-import qualified Data.Aeson as JSON
+import Data.Aeson as JSON
 
 import Control.Monad ( mzero )
 
@@ -166,9 +166,17 @@ data EmoteSpec = EmoteSpec { emoteStart :: Integer
 instance FromJSON EmoteSpec where
     parseJSON = withObject "EmoteSpec" $ \o -> do
         emoteStart <- o .: "start"
-        emoteLength <- o .: "end"
-        emoteId <- o .: "id"
-        return EmoteSpec{..}
+        emoteEnd :: Integer <- o .: "end"
+        emoteId' :: Maybe String <- o .:? "id"
+        let emoteLength = 1 + emoteEnd - emoteStart
+        case emoteId' of
+            Just emoteId'' ->
+                let emoteId = read emoteId'' :: Integer
+                in return EmoteSpec{..}
+            Nothing -> do
+                altEmoteId :: String <- o .: "emote_id"
+                let emoteId = read altEmoteId :: Integer
+                return EmoteSpec{..}
 
 data SubscriptionMessage = SubscriptionMessage { messageBody :: String
                                                , emotes :: [EmoteSpec]
