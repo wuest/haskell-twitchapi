@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -21,16 +22,19 @@ import Prelude
 
 import qualified Data.Time             as Time
 import qualified Data.Time.RFC3339     as Time ( parseTimeRFC3339 )
-import qualified Data.Time.Clock.POSIX as Time ( POSIXTime, posixSecondsToUTCTime )
+import qualified Data.Time.Clock.POSIX as Time ( posixSecondsToUTCTime )
 
 import Data.Aeson ( FromJSON(..), (.:), (.:?), withObject, withText, withEmbeddedJSON
                   , ToJSON(..), (.=), object
                   , Object
                   )
 
-import Data.Aeson as JSON
+import qualified Data.Aeson as JSON
 
 import Control.Monad ( mzero )
+import GHC.Generics  ( Generic )
+
+import qualified Data.Aeson.Types as JSON.Types
 
 data Topic = BitsV1 { channelId :: Integer }
            | BitsV2 { channelId :: Integer }
@@ -108,7 +112,7 @@ instance FromJSON Response where
 data RewardImages = RewardImages { tiny :: Maybe String
                                  , large :: Maybe String
                                  , huge :: Maybe String
-                                 } deriving ( Show, Eq )
+                                 } deriving ( Show, Eq, Generic )
 
 instance FromJSON RewardImages where
     parseJSON = withObject "RewardImages" $ \o -> do
@@ -120,7 +124,7 @@ instance FromJSON RewardImages where
 data UserInfo = UserInfo { userId :: Integer
                          , userName :: String
                          , displayName :: Maybe String
-                         } deriving ( Eq, Show )
+                         } deriving ( Eq, Show, Generic )
 
 instance FromJSON UserInfo where
     parseJSON = withObject "UserInfo" $ \o -> do
@@ -130,7 +134,7 @@ instance FromJSON UserInfo where
         displayName <- o .: "display_name"
         return UserInfo{..}
 
-data RewardStatus = Fulfilled | Unfulfilled deriving ( Eq, Show )
+data RewardStatus = Fulfilled | Unfulfilled deriving ( Eq, Show, Generic )
 
 instance Read RewardStatus where
     readsPrec _ "FULFILLED" = [(Fulfilled, "")]
@@ -139,7 +143,7 @@ instance Read RewardStatus where
 
 data BadgeUnlock = BadgeUnlock { newVersion :: Integer
                                , previousVersion :: Integer
-                               } deriving ( Eq, Show )
+                               } deriving ( Eq, Show, Generic )
 
 instance FromJSON BadgeUnlock where
     parseJSON = withObject "BadgeUnlock" $ \o -> do
@@ -147,7 +151,7 @@ instance FromJSON BadgeUnlock where
         previousVersion <- o .: "previous_version"
         return BadgeUnlock{..}
 
-data SubscriptionTier = Prime | Tier1 | Tier2 | Tier3 deriving ( Eq, Show )
+data SubscriptionTier = Prime | Tier1 | Tier2 | Tier3 deriving ( Eq, Show, Generic )
 
 instance FromJSON SubscriptionTier where
     parseJSON = withText "SubscriptionTier" $ \o ->
@@ -161,7 +165,7 @@ instance FromJSON SubscriptionTier where
 data EmoteSpec = EmoteSpec { emoteStart :: Integer
                            , emoteLength :: Integer
                            , emoteId :: Integer
-                           } deriving ( Eq, Show )
+                           } deriving ( Eq, Show, Generic )
 
 instance FromJSON EmoteSpec where
     parseJSON = withObject "EmoteSpec" $ \o -> do
@@ -180,7 +184,7 @@ instance FromJSON EmoteSpec where
 
 data SubscriptionMessage = SubscriptionMessage { messageBody :: String
                                                , emotes :: [EmoteSpec]
-                                               } deriving ( Eq, Show )
+                                               } deriving ( Eq, Show, Generic )
 
 instance FromJSON SubscriptionMessage where
     parseJSON = withObject "SubscriptionMessage" $ \o -> do
@@ -328,8 +332,20 @@ data Message = BitsV2Message { badge :: Maybe BadgeUnlock
              | SuccessMessage { nonce :: Maybe String }
              | ErrorMessage { nonce :: Maybe String
                             , errorString :: String
-                            } deriving ( Eq, Show )
+                            } deriving ( Eq, Show, Generic )
 
+instance JSON.ToJSON EmoteSpec
+instance JSON.ToJSON SubscriptionMessage
+instance JSON.ToJSON SubscriptionTier
+instance JSON.ToJSON RewardStatus
+instance JSON.ToJSON RewardImages
+instance JSON.ToJSON UserInfo
+instance JSON.ToJSON BadgeUnlock
+instance JSON.ToJSON Message
+
+type MessageParser = Object -> JSON.Types.Parser Message
+
+parseChannelSubscribeEvent :: MessageParser
 parseChannelSubscribeEvent o = do
     uid :: String <- o .: "user_id"
     userName <- o .: "user_name"
@@ -350,6 +366,7 @@ parseChannelSubscribeEvent o = do
 
     return ChannelSubscriptionMessage{..}
 
+parseChannelResubscribeEvent :: MessageParser
 parseChannelResubscribeEvent o = do
     uid :: String <- o .: "user_id"
     userName <- o .: "user_name"
@@ -372,6 +389,7 @@ parseChannelResubscribeEvent o = do
 
     return ChannelResubscriptionMessage{..}
 
+parseChannelExtendSubEvent :: MessageParser
 parseChannelExtendSubEvent o = do
     uid :: String <- o .: "user_id"
     userName <- o .: "user_name"
@@ -395,6 +413,7 @@ parseChannelExtendSubEvent o = do
 
     return ChannelExtendSubscriptionMessage{..}
 
+parseChannelSubGiftEvent :: MessageParser
 parseChannelSubGiftEvent o = do
     uid :: String <- o .: "user_id"
     userName <- o .: "user_name"
@@ -424,6 +443,7 @@ parseChannelSubGiftEvent o = do
         Just 1 -> return ChannelSubscriptionGiftMessage{..}
         Just months -> return ChannelMultiMonthSubscriptionGiftMessage{..}
 
+parseChannelAnonSubGiftEvent :: MessageParser
 parseChannelAnonSubGiftEvent o = do
     rid :: String <- o .: "recipient_id"
     rUserName <- o .: "recipient_user_name"
@@ -447,6 +467,7 @@ parseChannelAnonSubGiftEvent o = do
         Just 1 -> return ChannelAnonymousSubscriptionGiftMessage{..}
         Just months -> return ChannelAnonymousMultiMonthSubscriptionGiftMessage{..}
 
+parseChannelSubscribeMessage :: MessageParser
 parseChannelSubscribeMessage o = do
     context :: String <- o .: "context"
     case context of
@@ -459,6 +480,7 @@ parseChannelSubscribeMessage o = do
       "anonresubgift" -> parseChannelAnonSubGiftEvent o
       _ -> mzero
 
+parseBitsV2Message :: MessageParser
 parseBitsV2Message o = do
     dat <- o .: "data"
     anonymous :: Maybe Bool <- o .:? "is_anonymous"
@@ -467,6 +489,8 @@ parseBitsV2Message o = do
       (Just False) -> parseBitsV2 o dat
       (Just True)  -> parseBitsV2Anonymous o dat
 
+
+parseBitsV2 :: Object -> MessageParser
 parseBitsV2 o dat = do
     badge <- dat .: "badge_entitlement"
     bits <- dat .: "bits_used"
@@ -489,6 +513,7 @@ parseBitsV2 o dat = do
 
     return BitsV2Message{..}
 
+parseBitsV2Anonymous :: Object -> MessageParser
 parseBitsV2Anonymous o dat = do
     bits <- dat .: "bits_used"
     chatMessage <- dat .: "chat_message"
@@ -505,6 +530,7 @@ parseBitsV2Anonymous o dat = do
 
     return BitsV2AnonymousMessage{..}
 
+parseBitsV1Message :: MessageParser
 parseBitsV1Message o = do
     dat <- o .: "data"
     badge <- dat .: "badge_entitlement"
@@ -529,6 +555,7 @@ parseBitsV1Message o = do
 
     return BitsV1Message{..}
 
+parseBitsBadgeMessage :: MessageParser
 parseBitsBadgeMessage o = do
     userId <- o .: "user_id"
     userName <- o .: "user_name"
@@ -542,7 +569,8 @@ parseBitsBadgeMessage o = do
         channelId = read channel :: Integer
     return BitsBadgeMessage{..}
 
-parseRewardMessage o =  do
+parseRewardMessage :: MessageParser
+parseRewardMessage o = do
     dat <- o .: "data"
     redemption <- dat .: "redemption"
     reward <- redemption .: "reward"
@@ -582,6 +610,7 @@ parseRewardMessage o =  do
 
     return ChannelPointsMessage{..}
 
+parseWhisperMessage :: MessageParser
 parseWhisperMessage o = do
     dat <- o .: "data_object"
     messageId <- dat .: "message_id"
@@ -596,10 +625,10 @@ parseWhisperMessage o = do
     displayName <- tags .: "display_name"
     let user = UserInfo userId userName displayName
 
-    recip <- dat .: "recipient"
-    rUserId <- recip .: "id"
-    rUserName <- recip .: "username"
-    rDisplayName <- recip .: "display_name"
+    recipientData <- dat .: "recipient"
+    rUserId <- recipientData .: "id"
+    rUserName <- recipientData .: "username"
+    rDisplayName <- recipientData .: "display_name"
     let recipient = UserInfo rUserId rUserName rDisplayName
 
     timestamp :: Integer <- dat .: "sent_ts"
@@ -607,6 +636,7 @@ parseWhisperMessage o = do
 
     return WhisperMessage{..}
 
+parseServerResponse :: MessageParser
 parseServerResponse o = do
     errorString <- o .: "error"
     nonce <- o .: "nonce"
