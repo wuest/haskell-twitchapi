@@ -1,4 +1,4 @@
-.PHONY: clean all dist
+.PHONY: clean all dist test
 .DEFAULT_GOAL := all
 
 all:
@@ -6,6 +6,9 @@ all:
 
 dist:
 	cabal v2-sdist
+
+test:
+	cabal v2-test
 
 clean:
 	rm -rf dist*
