@@ -1,37 +1,31 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
 module Web.TwitchAPI.Helix.Bits where
 
 import Prelude
 
-import qualified Data.ByteString     as BS
-import qualified Data.Time           as Time
-import qualified Data.Time.RFC3339   as Time ( formatTimeRFC3339, parseTimeRFC3339 )
-import qualified Data.Text           as Text
-import qualified Data.Text.Encoding  as Text ( encodeUtf8 )
-import qualified Network.HTTP.Client as HTTP
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.Time             as Time
+import qualified Data.Time.RFC3339     as Time ( formatTimeRFC3339, parseTimeRFC3339 )
+import qualified Data.Text             as Text
+import qualified Data.Text.Encoding    as Text ( encodeUtf8 )
+import qualified Network.HTTP.Client   as HTTP
 
+import Data.Maybe ( fromMaybe )
 import Data.Aeson ( FromJSON(..), (.:), withObject
-                  , ToJSON(..), (.=), object
                   , Object
                   )
-import Data.Maybe ( fromMaybe )
 
-leaderboardScope :: String
-leaderboardScope = "bits:read"
+import qualified Web.TwitchAPI.Helix.Request as Req
 
-leaderboardRequest :: LeaderboardRequest -> HTTP.Request
-leaderboardRequest params =
-    let req = HTTP.parseRequest_ "GET https://api.twitch.tv/helix/bits/leaderboard"
-        count'     :: [(BS.ByteString, Maybe BS.ByteString)] = fromMaybe [] $ (\c -> ("count", Just . Text.encodeUtf8 . Text.pack . show $ c):[]) <$> (count params)
-        period'    :: [(BS.ByteString, Maybe BS.ByteString)] = fromMaybe [] $ (\p -> ("period", Just . Text.encodeUtf8 . Text.pack . show $ p):[]) <$> (period params)
-        startedAt' :: [(BS.ByteString, Maybe BS.ByteString)] = fromMaybe [] $ (\s -> ("started_at", Just . Text.encodeUtf8 $ (Time.formatTimeRFC3339 $ Time.utcToZonedTime Time.utc s :: Text.Text)):[]) <$> (startedAt (params :: LeaderboardRequest))
-        userId'    :: [(BS.ByteString, Maybe BS.ByteString)] = fromMaybe [] $ (\u -> ("user_id", Just . Text.encodeUtf8 . Text.pack . show $ u):[]) <$> (userId (params :: LeaderboardRequest))
-        query = foldl (++) [] [count', period', startedAt', userId']
-    in  HTTP.setQueryString query req
+data Leaderboard = Leaderboard { count     :: Maybe Integer
+                               , period    :: Maybe Period
+                               , startedAt :: Maybe Time.UTCTime
+                               , userId    :: Maybe Integer
+                               } deriving ( Show, Eq )
 
 data Period = Day | Week | Month | Year | All deriving ( Eq )
 instance Show Period where
@@ -41,11 +35,15 @@ instance Show Period where
     show Year  = "year"
     show All   = "all"
 
-data LeaderboardRequest = LeaderboardRequest { count     :: Maybe Integer
-                                             , period    :: Maybe Period
-                                             , startedAt :: Maybe Time.UTCTime
-                                             , userId    :: Maybe Integer
-                                             } deriving ( Show, Eq )
+instance Req.HelixRequest Leaderboard where
+    toRequest leaderboard =
+        let count'     :: [(BS.ByteString, Maybe BS.ByteString)] = fromMaybe [] $ (\c -> ("count", Just . BS.pack . show $ c):[]) <$> (count leaderboard)
+            period'    :: [(BS.ByteString, Maybe BS.ByteString)] = fromMaybe [] $ (\p -> ("period", Just . BS.pack . show $ p):[]) <$> (period leaderboard)
+            startedAt' :: [(BS.ByteString, Maybe BS.ByteString)] = fromMaybe [] $ (\s -> ("started_at", Just . Text.encodeUtf8 $ (Time.formatTimeRFC3339 $ Time.utcToZonedTime Time.utc s :: Text.Text)):[]) <$> ((startedAt :: Leaderboard -> Maybe Time.UTCTime) leaderboard)
+            userId'    :: [(BS.ByteString, Maybe BS.ByteString)] = fromMaybe [] $ (\u -> ("user_id", Just . Text.encodeUtf8 . Text.pack . show $ u):[]) <$> ((userId :: Leaderboard -> Maybe Integer) leaderboard)
+            setQuery = HTTP.setQueryString $ foldl (++) [] [count', period', startedAt', userId']
+        in setQuery $ HTTP.parseRequest_ "GET https://api.twitch.tv/helix/bits/leaderboard"
+    scope Leaderboard{} = Just "bits:read"
 
 data LeaderboardEntry = LeaderboardEntry { userId    :: Integer
                                          , userLogin :: String
@@ -81,17 +79,13 @@ instance FromJSON LeaderboardResponse where
             startedAt = Time.zonedTimeToUTC <$> Time.parseTimeRFC3339 started
         return LeaderboardResponse{..}
 
+data Cheermotes = Cheermotes { broadcasterId :: Integer } deriving ( Show, Eq )
 
-cheermotesScope :: String
-cheermotesScope = ""
-
-cheermotesRequest :: CheermotesRequest -> HTTP.Request
-cheermotesRequest params =
-    let req = HTTP.parseRequest_ "GET https://api.twitch.tv/helix/bits/cheermotes"
-        broadcasterId' :: [(BS.ByteString, Maybe BS.ByteString)] = ("broadcaster_id", Just . Text.encodeUtf8 . Text.pack . show $ broadcasterId params):[]
-    in  HTTP.setQueryString broadcasterId' req
-
-data CheermotesRequest = CheermotesRequest { broadcasterId :: Integer } deriving ( Show, Eq )
+instance Req.HelixRequest Cheermotes where
+    toRequest c =
+        let setQuery  = HTTP.setQueryString [("broadcaster_id", Just . BS.pack . show $ (broadcasterId :: Cheermotes -> Integer) c)]
+        in setQuery $ HTTP.parseRequest_ "GET https://api.twitch.tv/helix/bits/leaderboard"
+    scope Cheermotes{} = Nothing
 
 data CheermoteClass = GlobalFirstParty | GlobalThirdParty | ChannelCustom | DisplayOnly | Sponsored | Unknown deriving ( Eq, Show )
 
