@@ -1,21 +1,25 @@
 name:                twitchapi
 version:             0.0.1
 synopsis:            Client access to Twitch.tv API endpoints
-description:         Client access to Twitch.tv API endpoints
+description:         Twitch.tv API client supporting Helix and PubSub
 homepage:            https://github.com/wuest/haskell-twitchapi
 bug-reports:         https://github.com/wuest/haskell-twitchapi/issues
 license:             BSD3
 license-file:        LICENSE
 author:              Tina Wuest
 maintainer:          tina@wuest.me
-copyright:           2021 Tina Wuest
+copyright:           2021-2022 Tina Wuest
 category:            Web
 build-type:          Simple
 extra-source-files:  CHANGELOG.md
 cabal-version:       >=1.10
 
+source-repository head
+  type: git
+  location: https://github.com/wuest/haskell-twitchapi.git
+
 library
-  ghc-options:      -Wall -fwarn-implicit-prelude -fwarn-monomorphism-restriction -static
+  ghc-options:      -Wall -fwarn-implicit-prelude -fwarn-monomorphism-restriction -O2 -static
   default-language: Haskell2010
   hs-source-dirs:   src
 
@@ -24,15 +28,15 @@ library
                     , Web.TwitchAPI.Helix.Request
                     , Web.TwitchAPI.PubSub
 
-  build-depends:      base            >= 4.9  && < 4.16
-                    , http-client     >= 0.5  && < 0.8
-                    , aeson           >= 1.0  && < 1.6
+  build-depends:      base            >= 4.9  && < 4.18
+                    , aeson           >= 2.1  && < 2.2
                     , bytestring      >= 0.10 && < 0.12
-                    , time            >= 1.6  && < 1.12
-                    , text            >= 1.2  && < 1.3
-                    , hoauth2         >= 1.16 && < 1.17
+                    , hoauth2         >= 1.16 && < 2.6
+                    , http-client     >= 0.5  && < 0.8
+                    , text            >= 1.2  && < 2.1
+                    , time            >= 1.6  && < 1.14
+                    , timerep         >= 2.0  && < 2.2
                     , uri-bytestring  >= 0.3  && < 0.4
-                    , timerep         >= 2.0  && < 2.1
 
 test-suite pubsub
   ghc-options:      -threaded -rtsopts -with-rtsopts=-N -O2
@@ -42,11 +46,11 @@ test-suite pubsub
                     , src
   main-is:          PubSub.hs
   other-modules:      Web.TwitchAPI.PubSub
-  build-depends:      base            >= 4.9  && < 4.16
+  build-depends:      base            >= 4.9  && < 4.18
                     , QuickCheck      >= 2.8
                     , hspec           >= 2.7
-                    , aeson           >= 1.0  && < 1.6
+                    , aeson           >= 2.1  && < 2.2
                     , bytestring      >= 0.10 && < 0.12
-                    , text            >= 1.2  && < 1.3
-                    , time            >= 1.6  && < 1.12
-                    , timerep         >= 2.0  && < 2.1
+                    , text            >= 1.2  && < 2.1
+                    , time            >= 1.6  && < 1.14
+                    , timerep         >= 2.0  && < 2.2
