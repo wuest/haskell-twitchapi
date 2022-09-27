@@ -28,7 +28,7 @@ library
                     , Web.TwitchAPI.Helix.Request
                     , Web.TwitchAPI.PubSub
 
-  build-depends:      base            >= 4.9  && < 4.18
+  build-depends:      base            >= 4.11 && < 4.18
                     , aeson           >= 2.1  && < 2.2
                     , bytestring      >= 0.10 && < 0.12
                     , hoauth2         >= 1.16 && < 2.6
@@ -46,7 +46,7 @@ test-suite pubsub
                     , src
   main-is:          PubSub.hs
   other-modules:      Web.TwitchAPI.PubSub
-  build-depends:      base            >= 4.9  && < 4.18
+  build-depends:      base            >= 4.11 && < 4.18
                     , QuickCheck      >= 2.8
                     , hspec           >= 2.7
                     , aeson           >= 2.1  && < 2.2

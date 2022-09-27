@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         cabal: ['3.2']
-        ghc: ['8.0', '8.8', '8.10', '9.0']
+        ghc: ['8.4', '8.8', '8.10', '9.0']
         os: ['ubuntu-latest']
     runs-on: ${{ matrix.os }}
     steps:
