@@ -28,7 +28,7 @@ jobs:
             ~/.cabal/packages
             ~/.cabal/store
             dist-newstyle
-          key: ${{ runner.os }}-build-${{ hashFiles('**/*.cabal') }}
+          key: ${{ runner.os }}-build-${{ matrix.ghc }}-${{ hashFiles('**/*.cabal') }}
       - run: |
           cabal v2-update
           cabal v2-build --only-dependencies --enable-tests all
