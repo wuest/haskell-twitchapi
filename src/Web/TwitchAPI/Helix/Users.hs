@@ -1,7 +1,6 @@
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Web.TwitchAPI.Helix.Users where
 
@@ -24,15 +23,33 @@ import qualified Web.TwitchAPI.Helix.Request as Req
 --   - Block/Unblock User
 --   - Update User Extensions
 
-data User = User { lookupID :: Maybe String
+class DisplayName a where
+    displayName :: a -> String
+
+class ExtensionId a where
+    extensionId :: a -> String
+
+class IsActive a where
+    active :: a -> Bool
+
+class Named a where
+    name :: a -> String
+
+class UserId a where
+    userId :: a -> Integer
+
+class Versioned a where
+    version :: a -> String
+
+data User = User { lookupId :: Maybe String
                  , username :: Maybe String
                  } deriving ( Show )
 
 instance Req.HelixRequest User where
     toRequest user =
-        let lookupID' :: [(BS.ByteString, Maybe BS.ByteString)] = maybe [] (\i -> [("id", Just . BS.pack . show $ i)]) (lookupID user)
+        let lookupId' :: [(BS.ByteString, Maybe BS.ByteString)] = maybe [] (\i -> [("id", Just . BS.pack . show $ i)]) (lookupId user)
             username' :: [(BS.ByteString, Maybe BS.ByteString)] = maybe [] (\u -> [("login", Just . BS.pack $ u)]) (username user)
-            setQuery = HTTP.setQueryString $ lookupID' ++ username'
+            setQuery = HTTP.setQueryString $ lookupId' ++ username'
         in setQuery $ HTTP.parseRequest_ "GET https://api.twitch.tv/helix/users"
     scope User{} = Just "user:read:email"
 
@@ -53,8 +70,8 @@ instance Read UserType where
 
 data UserEntry = UserEntry { broadcasterType :: BroadcasterType
                            , description     :: String
-                           , displayName     :: String
-                           , userId          :: Integer
+                           , userDisplayName :: String
+                           , userEntryId     :: Integer
                            , login           :: String
                            , offlineImageURL :: String
                            , profileImageURL :: String
@@ -69,28 +86,34 @@ instance FromJSON UserEntry where
         created :: String <- o .: "created_at"
         userType' :: String <- o .: "type"
         broadcasterType' :: String <- o .: "broadcaster_type"
-        let userId = read userId' :: Integer
+        let userEntryId = read userId' :: Integer
             createdAt = Time.zonedTimeToUTC <$> Time.parseTimeRFC3339 created
             userType = read userType' :: UserType
             broadcasterType = read broadcasterType' :: BroadcasterType
 
         description <- o .: "description"
-        displayName <- o .: "display_name"
+        userDisplayName <- o .: "display_name"
         login <- o .: "login"
         offlineImageURL <- o .: "offline_image_url"
         profileImageURL <- o .: "profile_image_url"
         email <- o .: "email"
         return UserEntry{..}
 
-data Users = Users { lookupIDs :: [Integer]
+instance DisplayName UserEntry where
+    displayName = userDisplayName
+
+instance UserId UserEntry where
+    userId = userEntryId
+
+data Users = Users { lookupIds :: [Integer]
                    , usernames :: [String]
                    } deriving ( Show, Eq )
 
 instance Req.HelixRequest Users where
     toRequest users =
-        let lookupID' :: [(BS.ByteString, Maybe BS.ByteString)] = (\i -> ("id", Just . BS.pack . show $ i)) <$> lookupIDs users
+        let lookupId' :: [(BS.ByteString, Maybe BS.ByteString)] = (\i -> ("id", Just . BS.pack . show $ i)) <$> lookupIds users
             username' :: [(BS.ByteString, Maybe BS.ByteString)] = (\u -> ("login", Just . BS.pack $ u)) <$> usernames users
-            setQuery = HTTP.setQueryString $ lookupID' ++ username'
+            setQuery = HTTP.setQueryString $ lookupId' ++ username'
         in setQuery $ HTTP.parseRequest_ "GET https://api.twitch.tv/helix/users"
     scope Users{} = Nothing
 
@@ -111,27 +134,27 @@ instance Req.HelixRequest Follows where
     toRequest user =
         let after' :: [(BS.ByteString, Maybe BS.ByteString)] = maybe [] (\a -> [("after", Just . BS.pack $ a)]) (after user)
             max' :: [(BS.ByteString, Maybe BS.ByteString)] = maybe [] (\u -> [("first", Just . BS.pack . show $ u)]) (from user)
-            fromID' :: [(BS.ByteString, Maybe BS.ByteString)] = maybe [] (\u -> [("after", Just . BS.pack . show $ u)]) (from user)
-            toID' :: [(BS.ByteString, Maybe BS.ByteString)] = maybe [] (\u -> [("after", Just . BS.pack . show $ u)]) (to user)
-            setQuery = HTTP.setQueryString $ concat [after', max', fromID', toID']
+            fromId' :: [(BS.ByteString, Maybe BS.ByteString)] = maybe [] (\u -> [("after", Just . BS.pack . show $ u)]) (from user)
+            toId' :: [(BS.ByteString, Maybe BS.ByteString)] = maybe [] (\u -> [("after", Just . BS.pack . show $ u)]) (to user)
+            setQuery = HTTP.setQueryString $ concat [after', max', fromId', toId']
         in setQuery $ HTTP.parseRequest_ "GET https://api.twitch.tv/helix/users/follows"
     scope Follows{} = Nothing
 
-data FollowEntry = FollowEntry { fromID :: Integer
+data FollowEntry = FollowEntry { fromId :: Integer
                                , fromLogin :: String
                                , fromName :: String
-                               , toID :: Integer
+                               , toId :: Integer
                                , toName :: String
                                , followedAt :: Maybe Time.UTCTime
                                } deriving ( Show, Eq )
 
 instance FromJSON FollowEntry where
     parseJSON = withObject "FollowEntry" $ \o -> do
-        fromID' :: String <- o .: "from_id"
-        toID' :: String <- o .: "to_id"
+        fromId' :: String <- o .: "from_id"
+        toId' :: String <- o .: "to_id"
         followedAt' :: String <- o .: "followed_at"
-        let fromID = read fromID' :: Integer
-            toID = read toID' :: Integer
+        let fromId = read fromId' :: Integer
+            toId = read toId' :: Integer
             followedAt = Time.zonedTimeToUTC <$> Time.parseTimeRFC3339 followedAt'
         fromLogin <- o .: "from_login"
         fromName <- o .: "from_name"
@@ -139,7 +162,7 @@ instance FromJSON FollowEntry where
         return FollowEntry{..}
 
 data FollowsResponse = FollowsResponse { total :: Integer
-                                       , users :: [FollowEntry]
+                                       , follows :: [FollowEntry]
                                        , paginationCursor :: String
                                        } deriving ( Show, Eq )
 
@@ -147,29 +170,35 @@ instance FromJSON FollowsResponse where
     parseJSON = withObject "FollowsResponse" $ \o -> do
         total <- o .: "total"
         paginationCursor <- (o .: "pagination") >>= (.: "cursor")
-        users <- o .: "data"
+        follows <- o .: "data"
         return FollowsResponse{..}
 
-newtype BlockList = BlockList { broadcasterID :: Integer } deriving ( Show, Eq )
+newtype BlockList = BlockList { broadcasterId :: Integer } deriving ( Show, Eq )
 
 instance Req.HelixRequest BlockList where
     toRequest user =
-        HTTP.setQueryString [("login", Just . BS.pack . show . broadcasterID $ user)] $
+        HTTP.setQueryString [("login", Just . BS.pack . show . broadcasterId $ user)] $
             HTTP.parseRequest_ "https://api.twitch.tv/helix/users/blocks"
     scope BlockList{} = Just "user:read:blocked_users"
 
-data BlockListEntry = BlockListEntry { userId :: Integer
+data BlockListEntry = BlockListEntry { blockedUserId :: Integer
                                      , userLogin :: String
-                                     , displayName :: String
+                                     , blockedDisplayName :: String
                                      } deriving ( Show, Eq )
 
 instance FromJSON BlockListEntry where
     parseJSON = withObject "BlockListEntry" $ \o -> do
         userId' :: String <- o .: "user_id"
-        let userId = read userId' :: Integer
+        let blockedUserId = read userId' :: Integer
         userLogin <- o .: "user_login"
-        displayName <- o .: "display_name"
+        blockedDisplayName <- o .: "display_name"
         return BlockListEntry{..}
+
+instance DisplayName BlockListEntry where
+    displayName = blockedDisplayName
+
+instance UserId BlockListEntry where
+    userId = blockedUserId
 
 newtype BlockListResponse = BlockListResponse { blocks :: [BlockListEntry] } deriving ( Show, Eq )
 
@@ -194,20 +223,26 @@ instance Read ExtensionType where
     readsPrec _ _           = mempty
 
 data ExtensionsEntry = ExtensionsEntry { canActivate :: Bool
-                                       , extensionId :: String
-                                       , name :: String
+                                       , extensionEntryId :: String
+                                       , extensionName :: String
                                        , extensionTypes :: [ExtensionType]
-                                       , version :: String
+                                       , extensionVersion :: String
                                        } deriving ( Show, Eq )
+
+instance ExtensionId ExtensionsEntry where
+    extensionId = extensionEntryId
+
+instance Versioned ExtensionsEntry where
+    version = extensionVersion
 
 instance FromJSON ExtensionsEntry where
     parseJSON = withObject "ExtensionsEntry" $ \o -> do
         extensionTypes' :: [String] <- o .: "type"
         let extensionTypes :: [ExtensionType] = read <$> extensionTypes'
         canActivate <- o .: "can_activate"
-        extensionId <- o .: "id"
-        name <- o .: "name"
-        version <- o .: "version"
+        extensionEntryId <- o .: "id"
+        extensionName <- o .: "name"
+        extensionVersion <- o .: "version"
         return ExtensionsEntry{..}
 
 newtype ExtensionsResponse = ExtensionsResponse { extensions :: [ExtensionsEntry] } deriving ( Show, Eq )
@@ -217,43 +252,57 @@ instance FromJSON ExtensionsResponse where
         extensions <- o .: "data"
         return ExtensionsResponse{..}
 
-newtype ActiveExtensions = ActiveExtensions { userID :: Maybe Integer } deriving ( Show, Eq )
+data ActiveExtensions = ActiveExtensions
+                      | ActiveExtensionsFor Integer deriving ( Show, Eq )
 
 instance Req.HelixRequest ActiveExtensions where
-    toRequest user =
-        let userID' :: [(BS.ByteString, Maybe BS.ByteString)] = maybe [] (\i -> [("user_id", Just . BS.pack . show $ i)]) (userID user)
-            setQuery = HTTP.setQueryString userID'
+    toRequest (ActiveExtensionsFor i) =
+        let setQuery = HTTP.setQueryString [("user_id", Just . BS.pack . show $ i)]
         in setQuery $ HTTP.parseRequest_ "GET https://api.twitch.tv/helix/users/extensions"
-    scope ActiveExtensions{} = Nothing
+    toRequest ActiveExtensions = HTTP.parseRequest_ "GET https://api.twitch.tv/helix/users/extensions"
+    scope ActiveExtensions = Nothing
+    scope (ActiveExtensionsFor _) = Nothing
 
-data ActiveComponentExtensionEntry' = ActiveComponentExtensionEntry' { active :: Bool
-                                                                     , extensionId :: String
-                                                                     , version :: String
-                                                                     , name :: String
-                                                                     , x :: Integer
-                                                                     , y :: Integer
+data ActiveComponentExtensionEntry' = ActiveComponentExtensionEntry' { activeComponentActive' :: Bool
+                                                                     , activeComponentExtensionId' :: String
+                                                                     , activeComponentVersion' :: String
+                                                                     , activeComponentName' :: String
+                                                                     , activeComponentX :: Integer
+                                                                     , activeComponentY :: Integer
                                                                      }
                                     | InactiveComponentExtension deriving ( Show, Eq )
 
 instance FromJSON ActiveComponentExtensionEntry' where
     parseJSON = withObject "ActiveExtensionEntry" $ \o -> do
-        active <- o .: "active"
-        if active then do
-            extensionId <- o .: "id"
-            version <- o .: "version"
-            name <- o .: "name"
-            x <- o .: "x"
-            y <- o .: "y"
+        activeComponentActive' <- o .: "active"
+        if activeComponentActive' then do
+            activeComponentExtensionId' <- o .: "id"
+            activeComponentVersion' <- o .: "version"
+            activeComponentName' <- o .: "name"
+            activeComponentX <- o .: "x"
+            activeComponentY <- o .: "y"
             return ActiveComponentExtensionEntry'{..}
         else return InactiveComponentExtension
 
-data ActiveComponentExtensionEntry = ActiveComponentExtensionEntry { active :: Bool
-                                                                   , extensionId :: String
-                                                                   , version :: String
-                                                                   , name :: String
+data ActiveComponentExtensionEntry = ActiveComponentExtensionEntry { activeComponentExtensionActive :: Bool
+                                                                   , activeComponentExtensionId :: String
+                                                                   , activeComponentExtensionVersion :: String
+                                                                   , activeComponentExtensionName :: String
                                                                    , x :: Integer
                                                                    , y :: Integer
                                                                    } deriving ( Show, Eq )
+
+instance ExtensionId ActiveComponentExtensionEntry where
+    extensionId = activeComponentExtensionId
+
+instance IsActive ActiveComponentExtensionEntry where
+    active = activeComponentExtensionActive
+
+instance Named ActiveComponentExtensionEntry where
+    name = activeComponentExtensionName
+
+instance Versioned ActiveComponentExtensionEntry where
+    version = activeComponentExtensionVersion
 
 filterActiveComponentExtensions :: [ActiveComponentExtensionEntry'] -> [ActiveComponentExtensionEntry]
 filterActiveComponentExtensions = reverse . foldl filterActiveComponentExtensions' []
@@ -262,28 +311,40 @@ filterActiveComponentExtensions' :: [ActiveComponentExtensionEntry] -> ActiveCom
 filterActiveComponentExtensions' as InactiveComponentExtension = as
 filterActiveComponentExtensions' as (ActiveComponentExtensionEntry' _ i v n x y) = ActiveComponentExtensionEntry True i v n x y : as
 
-data ActiveExtensionEntry' = ActiveExtensionEntry' { active :: Bool
-                                                   , extensionId :: String
-                                                   , version :: String
-                                                   , name :: String
-                                                   } 
+data ActiveExtensionEntry' = ActiveExtensionEntry' { activeExtensionActive' :: Bool
+                                                   , activeExtensionExtensionId' :: String
+                                                   , activeExtensionVersion' :: String
+                                                   , activeExtensionName' :: String
+                                                   }
                           | InactiveExtension deriving ( Show, Eq )
 
 instance FromJSON ActiveExtensionEntry' where
     parseJSON = withObject "ActiveExtensionEntry" $ \o -> do
-        active <- o .: "active"
-        if active then do
-            extensionId <- o .: "id"
-            version <- o .: "version"
-            name <- o .: "name"
+        activeExtensionActive' <- o .: "active"
+        if activeExtensionActive' then do
+            activeExtensionExtensionId' <- o .: "id"
+            activeExtensionVersion' <- o .: "version"
+            activeExtensionName' <- o .: "name"
             return ActiveExtensionEntry'{..}
         else return InactiveExtension
 
-data ActiveExtensionEntry = ActiveExtensionEntry { active :: Bool
-                                                 , extensionId :: String
-                                                 , version :: String
-                                                 , name :: String
+data ActiveExtensionEntry = ActiveExtensionEntry { activeExtensionActive :: Bool
+                                                 , activeExtensionId :: String
+                                                 , activeExtensionVersion :: String
+                                                 , activeExtensionName :: String
                                                  } deriving ( Show, Eq )
+
+instance IsActive ActiveExtensionEntry where
+    active = activeExtensionActive
+
+instance ExtensionId ActiveExtensionEntry where
+    extensionId = activeExtensionId
+
+instance Versioned ActiveExtensionEntry where
+    version = activeExtensionVersion
+
+instance Named ActiveExtensionEntry where
+    name = activeExtensionName
 
 filterActiveExtensions :: [ActiveExtensionEntry'] -> [ActiveExtensionEntry]
 filterActiveExtensions = reverse . foldl filterActiveExtensions' []

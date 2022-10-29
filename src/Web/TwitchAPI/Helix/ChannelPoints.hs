@@ -1,7 +1,6 @@
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Web.TwitchAPI.Helix.ChannelPoints where
 
@@ -21,33 +20,41 @@ import Data.Aeson ( FromJSON(..), (.:), withObject
 
 import qualified Web.TwitchAPI.Helix.Request as Req
 
-data Create = Create { broadcasterId :: Integer
+class RewardDetails a where
+    broadcasterId :: a -> Integer
+    prompt :: a -> Maybe String
+    backgroundColor :: a -> String
+    maxPerStream :: a -> Maybe Integer
+    maxPerUser :: a -> Maybe Integer
+    autoFulfilled :: a -> Bool
+
+data Create = Create { forBroadcasterId :: Integer
                      , title :: String
-                     , prompt :: Maybe String
+                     , setPrompt :: Maybe String
                      , cost :: Integer
                      , enabled :: Maybe Bool
-                     , backgroundColor :: Maybe String
-                     , maxPerStream :: Maybe Integer
-                     , maxPerUser :: Maybe Integer
+                     , setBackgroundColor :: Maybe String
+                     , setMaxPerStream :: Maybe Integer
+                     , setMaxPerUser :: Maybe Integer
                      , cooldownSeconds :: Maybe Integer
-                     , autoFulfilled :: Maybe Bool
+                     , setAutoFulfilled :: Maybe Bool
                      } deriving ( Show, Eq )
 
 instance ToJSON Create where
     toJSON Create{..} =
-        object [ "title"      .= (Text.pack title)
-               , "prompt"     .= (Text.pack <$> prompt)
+        object [ "title"      .= Text.pack title
+               , "prompt"     .= (Text.pack <$> setPrompt)
                , "cost"       .= cost
-               , "is_enabled" .= (fromMaybe True enabled)
-               , "background_color" .= (Text.pack <$> backgroundColor)
-               , "is_user_input_required" .= (fmap (const True) prompt)
-               , "is_max_per_stream_enabled" .= (fmap (const True) maxPerStream)
-               , "max_per_stream" .= maxPerStream
-               , "is_max_per_user_per_stream_enabled" .= (fmap (const True) maxPerUser)
-               , "max_per_user_per_stream" .= maxPerUser
-               , "is_global_cooldown_enabled" .= (fmap (const True) cooldownSeconds)
+               , "is_enabled" .= fromMaybe True enabled
+               , "background_color" .= (Text.pack <$> setBackgroundColor)
+               , "is_user_input_required" .= fmap (const True) setPrompt
+               , "is_max_per_stream_enabled" .= fmap (const True) setMaxPerStream
+               , "max_per_stream" .= setMaxPerStream
+               , "is_max_per_user_per_stream_enabled" .= fmap (const True) setMaxPerUser
+               , "max_per_user_per_stream" .= setMaxPerUser
+               , "is_global_cooldown_enabled" .= fmap (const True) cooldownSeconds
                , "global_cooldown_seconds" .= cooldownSeconds
-               , "should_redemptions_skip_request_queue" .= autoFulfilled
+               , "should_redemptions_skip_request_queue" .= setAutoFulfilled
                ]
 
 instance Req.HelixRequest Create where
@@ -56,6 +63,14 @@ instance Req.HelixRequest Create where
             setBody r = r{ HTTP.requestBody = HTTP.RequestBodyLBS . encode . toJSON $ create }
         in setBody . setQuery $ HTTP.parseRequest_ "POST https://api.twitch.tv/helix/channel_points/custom_rewards"
     scope Create{} = Just "channel:manage:redemptions"
+
+instance RewardDetails Create where
+    broadcasterId = forBroadcasterId
+    prompt = setPrompt
+    backgroundColor = fromMaybe "" . setBackgroundColor
+    maxPerStream = setMaxPerStream
+    maxPerUser = setMaxPerUser
+    autoFulfilled = fromMaybe False . setAutoFulfilled
 
 data RewardImages = RewardImages { tiny :: Maybe String
                                  , large :: Maybe String
@@ -69,22 +84,22 @@ instance FromJSON RewardImages where
         huge <- o .: "url_4x"
         return RewardImages{..}
 
-data CreateResponse = CreateResponse { broadcasterId :: Integer
+data CreateResponse = CreateResponse { broadcaster :: Integer
                                      , broadcasterLogin :: String
                                      , broadcasterName :: String
                                      , rewardId :: String
                                      , rewardTitle :: String
-                                     , prompt :: Maybe String
+                                     , rewardPrompt :: Maybe String
                                      , rewardCost :: Integer
                                      , rewardImage :: Maybe RewardImages
                                      , defaultImage :: RewardImages
-                                     , backgroundColor :: String
-                                     , maxPerStream :: Maybe Integer
-                                     , maxPerUser :: Maybe Integer
-                                     , cooldownSeconds :: Maybe Integer
+                                     , rewardBackgroundColor :: String
+                                     , rewardMaxPerStream :: Maybe Integer
+                                     , rewardMaxPerUser :: Maybe Integer
+                                     , cooldown :: Maybe Integer
                                      , paused :: Bool
                                      , inStock :: Bool
-                                     , autoFulfilled :: Bool
+                                     , rewardAutoFulfilled :: Bool
                                      , redemptionCount :: Integer
                                      , cooldownExpires :: Maybe Time.UTCTime
                                      } deriving ( Show, Eq )
@@ -92,7 +107,7 @@ data CreateResponse = CreateResponse { broadcasterId :: Integer
 instance FromJSON CreateResponse where
     parseJSON = withObject "CreateResponse" $ \o -> do
         bid <- o .: "broadcaster_id"
-        let broadcasterId = read bid :: Integer
+        let broadcaster = read bid :: Integer
         broadcasterLogin <- o .: "broadcaster_login"
         broadcasterName <- o .: "broadcaster_name"
         rewardId <- o .: "id"
@@ -100,32 +115,40 @@ instance FromJSON CreateResponse where
 
         promptText <- o .: "prompt"
         promptEnabled :: Bool <- o .: "is_user_input_required"
-        let prompt = if promptEnabled then Just promptText else Nothing
+        let rewardPrompt = if promptEnabled then Just promptText else Nothing
 
         rewardCost <- o .: "cost"
         rewardImage <- o .: "image"
         defaultImage <- o .: "default_image"
-        backgroundColor <- o .: "background_color"
+        rewardBackgroundColor <- o .: "background_color"
 
         maxObject :: Object <- o .: "max_per_stream_setting"
         maxEnabled <- maxObject .: "is_enabled"
         streamMax <- maxObject .: "max_per_stream"
-        let maxPerStream = if maxEnabled then Just streamMax else Nothing
+        let rewardMaxPerStream = if maxEnabled then Just streamMax else Nothing
 
         userMaxObject :: Object <- o .: "max_per_user_per_stream_setting"
         userMaxEnabled <- userMaxObject .: "is_enabled"
         userMax <- userMaxObject .: "max_per_user_per_stream"
-        let maxPerUser = if userMaxEnabled then Just userMax else Nothing
+        let rewardMaxPerUser = if userMaxEnabled then Just userMax else Nothing
 
         cooldownObject :: Object <- o .: "global_cooldown_setting"
         cooldownEnabled <- cooldownObject .: "is_enabled"
-        cooldown <- cooldownObject .: "global_cooldown_seconds"
-        let cooldownSeconds = if cooldownEnabled then Just cooldown else Nothing
+        cooldownSeconds <- cooldownObject .: "global_cooldown_seconds"
+        let cooldown = if cooldownEnabled then Just cooldownSeconds else Nothing
 
         paused <- o .: "is_paused"
         inStock <- o .: "is_in_stock"
-        autoFulfilled <- o .: "should_redemptions_skip_request_queue"
+        rewardAutoFulfilled <- o .: "should_redemptions_skip_request_queue"
         redemptionCount <- o .: "redemptions_redeemed_current_stream"
         cooldownExpiry :: Maybe String <- o .: "cooldown_expires_at"
         let cooldownExpires = Time.zonedTimeToUTC <$> (Time.parseTimeRFC3339 =<< cooldownExpiry)
         return CreateResponse{..}
+
+instance RewardDetails CreateResponse where
+    broadcasterId = broadcaster
+    prompt = rewardPrompt
+    backgroundColor = rewardBackgroundColor
+    maxPerStream = rewardMaxPerStream
+    maxPerUser = rewardMaxPerUser
+    autoFulfilled = rewardAutoFulfilled

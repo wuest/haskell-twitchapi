@@ -1,7 +1,6 @@
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Web.TwitchAPI.Helix.Bits where
 
@@ -14,17 +13,16 @@ import qualified Data.Text             as Text
 import qualified Data.Text.Encoding    as Text ( encodeUtf8 )
 import qualified Network.HTTP.Client   as HTTP
 
-import Data.Maybe ( fromMaybe )
 import Data.Aeson ( FromJSON(..), (.:), withObject
                   , Object
                   )
 
 import qualified Web.TwitchAPI.Helix.Request as Req
 
-data Leaderboard = Leaderboard { count     :: Maybe Integer
-                               , period    :: Maybe Period
-                               , startedAt :: Maybe Time.UTCTime
-                               , userId    :: Maybe Integer
+data Leaderboard = Leaderboard { count    :: Maybe Integer
+                               , period   :: Maybe Period
+                               , start    :: Maybe Time.UTCTime
+                               , searchId :: Maybe Integer
                                } deriving ( Show, Eq )
 
 data Period = Day | Week | Month | Year | All deriving ( Eq )
@@ -37,11 +35,11 @@ instance Show Period where
 
 instance Req.HelixRequest Leaderboard where
     toRequest leaderboard =
-        let count'     :: [(BS.ByteString, Maybe BS.ByteString)] = fromMaybe [] $ (\c -> ("count", Just . BS.pack . show $ c):[]) <$> (count leaderboard)
-            period'    :: [(BS.ByteString, Maybe BS.ByteString)] = fromMaybe [] $ (\p -> ("period", Just . BS.pack . show $ p):[]) <$> (period leaderboard)
-            startedAt' :: [(BS.ByteString, Maybe BS.ByteString)] = fromMaybe [] $ (\s -> ("started_at", Just . Text.encodeUtf8 $ (Time.formatTimeRFC3339 $ Time.utcToZonedTime Time.utc s :: Text.Text)):[]) <$> ((startedAt :: Leaderboard -> Maybe Time.UTCTime) leaderboard)
-            userId'    :: [(BS.ByteString, Maybe BS.ByteString)] = fromMaybe [] $ (\u -> ("user_id", Just . Text.encodeUtf8 . Text.pack . show $ u):[]) <$> ((userId :: Leaderboard -> Maybe Integer) leaderboard)
-            setQuery = HTTP.setQueryString $ foldl (++) [] [count', period', startedAt', userId']
+        let count'    :: [(BS.ByteString, Maybe BS.ByteString)] = maybe [] (\c -> [("count", Just . BS.pack . show $ c)]) (count leaderboard)
+            period'   :: [(BS.ByteString, Maybe BS.ByteString)] = maybe [] (\p -> [("period", Just . BS.pack . show $ p)]) (period leaderboard)
+            start'    :: [(BS.ByteString, Maybe BS.ByteString)] = maybe [] (\s -> [("started_at", Just . Text.encodeUtf8 $ (Time.formatTimeRFC3339 $ Time.utcToZonedTime Time.utc s :: Text.Text))]) (start leaderboard)
+            searchId' :: [(BS.ByteString, Maybe BS.ByteString)] = maybe [] (\u -> [("user_id", Just . Text.encodeUtf8 . Text.pack . show $ u)]) (searchId leaderboard)
+            setQuery = HTTP.setQueryString $ concat [count', period', start', searchId']
         in setQuery $ HTTP.parseRequest_ "GET https://api.twitch.tv/helix/bits/leaderboard"
     scope Leaderboard{} = Just "bits:read"
 
@@ -79,7 +77,7 @@ instance FromJSON LeaderboardResponse where
             startedAt = Time.zonedTimeToUTC <$> Time.parseTimeRFC3339 started
         return LeaderboardResponse{..}
 
-data Cheermotes = Cheermotes { broadcasterId :: Integer } deriving ( Show, Eq )
+newtype Cheermotes = Cheermotes { broadcasterId :: Integer } deriving ( Show, Eq )
 
 instance Req.HelixRequest Cheermotes where
     toRequest c =
