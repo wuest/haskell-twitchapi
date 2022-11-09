@@ -1,8 +1,8 @@
 # Revision history for twitchapi
 
-## 0.0.3 -- 2022-XX-XX
+## 0.0.3 -- 2022-11-09
 
-* Restructured existing API
+* Restructured Helix API to remove DuplicateRecordFields dependency
 
 ## 0.0.2 -- 2022-10-10
 

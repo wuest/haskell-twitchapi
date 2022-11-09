@@ -1,5 +1,3 @@
-{-# LANGUAGE DuplicateRecordFields #-}
-
 module Web.TwitchAPI.Helix.Request where
 
 import Prelude
