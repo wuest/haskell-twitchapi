@@ -1,5 +1,5 @@
 name:                twitchapi
-version:             0.0.3
+version:             0.0.4
 synopsis:            Client access to Twitch.tv API endpoints
 description:         Twitch.tv API client supporting Helix and PubSub
 homepage:            https://github.com/wuest/haskell-twitchapi

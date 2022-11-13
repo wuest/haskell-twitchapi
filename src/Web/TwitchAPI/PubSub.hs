@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -20,6 +20,9 @@ module Web.TwitchAPI.PubSub where
 
 import Prelude
 
+
+import qualified Data.Aeson            as JSON
+import qualified Data.Maybe            as Maybe
 import qualified Data.Time             as Time
 import qualified Data.Time.RFC3339     as Time ( parseTimeRFC3339 )
 import qualified Data.Time.Clock.POSIX as Time ( posixSecondsToUTCTime )
@@ -29,30 +32,28 @@ import Data.Aeson ( FromJSON(..), (.:), (.:?), withObject, withText, withEmbedde
                   , Object
                   )
 
-import qualified Data.Aeson as JSON
-
 import Control.Monad ( mzero )
 import GHC.Generics  ( Generic )
 
 import qualified Data.Aeson.Types as JSON.Types
 
-data Topic = BitsV1 { channelId :: Integer }
-           | BitsV2 { channelId :: Integer }
-           | BitsBadge { channelId :: Integer }
-           | ChannelPoints { channelId :: Integer }
-           | ChannelSubscriptions { channelId :: Integer }
-           | ChatModeratorActions { channelId :: Integer, userId :: Integer }
-           | Whispers { userId :: Integer }
+data Topic = BitsV1 { channel :: Integer }
+           | BitsV2 { channel :: Integer }
+           | BitsBadge { channel :: Integer }
+           | ChannelPoints { channel :: Integer }
+           | ChannelSubscriptions { channel :: Integer }
+           | ChatModeratorActions { channel :: Integer, user :: Integer }
+           | Whispers { user :: Integer }
            deriving ( Eq, Show )
 
 toRequest :: Topic -> String
-toRequest BitsV1{..} = ("channel-bits-events-v1." ++) $ show channelId
-toRequest BitsV2{..} = ("channel-bits-events-v2." ++) $ show channelId
-toRequest BitsBadge{..} = ("channel-bits-badge-unlocks." ++) $ show channelId
-toRequest ChannelPoints{..} = ("channel-points-channel-v1." ++) $ show channelId
-toRequest ChannelSubscriptions{..} = ("channel-subscribe-events-v1." ++) $ show channelId
-toRequest ChatModeratorActions{..} = "chat_moderator_actions." ++ (show userId) ++ "." ++ (show channelId)
-toRequest Whispers{..} = ("whispers." ++) $ show userId
+toRequest BitsV1{..} = ("channel-bits-events-v1." ++) $ show channel
+toRequest BitsV2{..} = ("channel-bits-events-v2." ++) $ show channel
+toRequest BitsBadge{..} = ("channel-bits-badge-unlocks." ++) $ show channel
+toRequest ChannelPoints{..} = ("channel-points-channel-v1." ++) $ show channel
+toRequest ChannelSubscriptions{..} = ("channel-subscribe-events-v1." ++) $ show channel
+toRequest ChatModeratorActions{..} = "chat_moderator_actions." ++ show user ++ "." ++ show channel
+toRequest Whispers{..} = ("whispers." ++) $ show user
 
 scope :: Topic -> String
 scope BitsV1{} = "bits:read"
@@ -70,15 +71,15 @@ instance Show RequestType where
     show Unlisten = "UNLISTEN"
 
 data Request = Request { requestType :: RequestType
-                       , nonce :: Maybe String
+                       , requestNonce :: Maybe String
                        , topics :: [Topic]
                        , authToken :: String
                        } deriving ( Eq, Show )
 
 instance ToJSON Request where
     toJSON Request{..} =
-        object [ "type" .= (show requestType)
-               , "nonce" .= nonce
+        object [ "type" .= show requestType
+               , "nonce" .= requestNonce
                , "data" .= object [ "topics" .= (toRequest <$> topics)
                                   , "auth_token" .= authToken
                                   ]
@@ -93,7 +94,7 @@ instance Read RequestError where
     readsPrec _ "ERR_BADTOPIC"   = [(BadTopic, "")]
     readsPrec _ _                = [(None, "")]
 
-data Response = Response { nonce :: Maybe String
+data Response = Response { responseNonce :: Maybe String
                          , errorReported :: RequestError
                          } deriving ( Show, Eq )
 
@@ -102,7 +103,7 @@ instance FromJSON Response where
         o .: "type" >>= \(reportedType :: String) ->
         -- This value is required per Twitch or else any response is invalid
         if reportedType == "RESPONSE" then do
-            nonce <- o .: "nonce"
+            responseNonce <- o .: "nonce"
             err <- o .: "error"
             let errorReported = read err :: RequestError
             return Response{..}
@@ -154,13 +155,12 @@ instance FromJSON BadgeUnlock where
 data SubscriptionTier = Prime | Tier1 | Tier2 | Tier3 deriving ( Eq, Show, Generic )
 
 instance FromJSON SubscriptionTier where
-    parseJSON = withText "SubscriptionTier" $ \o ->
-        case o of
-            "1000" -> return Tier1
-            "2000" -> return Tier2
-            "3000" -> return Tier3
-            "Prime" -> return Prime
-            _ -> mzero
+    parseJSON = withText "SubscriptionTier" $ \case
+        "1000" -> return Tier1
+        "2000" -> return Tier2
+        "3000" -> return Tier3
+        "Prime" -> return Prime
+        _ -> mzero
 
 data EmoteSpec = EmoteSpec { emoteStart :: Integer
                            , emoteLength :: Integer
@@ -182,17 +182,15 @@ instance FromJSON EmoteSpec where
                 let emoteId = read altEmoteId :: Integer
                 return EmoteSpec{..}
 
-data SubscriptionMessage = SubscriptionMessage { messageBody :: String
-                                               , emotes :: [EmoteSpec]
+data SubscriptionMessage = SubscriptionMessage { subscriptionMessage :: String
+                                               , subscriptionEmotes :: [EmoteSpec]
                                                } deriving ( Eq, Show, Generic )
 
 instance FromJSON SubscriptionMessage where
     parseJSON = withObject "SubscriptionMessage" $ \o -> do
-        messageBody <- o .: "message"
+        subscriptionMessage <- o .: "message"
         emotes' <- o .:? "emotes"
-        let emotes = case emotes' of
-                         Nothing -> []
-                         Just xs -> xs
+        let subscriptionEmotes = Maybe.fromMaybe [] emotes'
         return SubscriptionMessage{..}
 
 data Message = BitsV2Message { badge :: Maybe BadgeUnlock
@@ -204,8 +202,8 @@ data Message = BitsV2Message { badge :: Maybe BadgeUnlock
                              , messageType :: String
                              , time :: Maybe Time.UTCTime
                              , userTotal :: Integer
-                             , userId :: Maybe Integer
-                             , userName :: Maybe String
+                             , messageUser :: Maybe Integer
+                             , messageUserName :: Maybe String
                              , version :: String
                              }
              | BitsV2AnonymousMessage { bits :: Integer
@@ -227,12 +225,12 @@ data Message = BitsV2Message { badge :: Maybe BadgeUnlock
                              , messageType :: String
                              , time :: Maybe Time.UTCTime
                              , userTotal :: Integer
-                             , userId :: Maybe Integer
-                             , userName :: Maybe String
+                             , messageUser :: Maybe Integer
+                             , messageUserName :: Maybe String
                              , version :: String
                              }
-             | BitsBadgeMessage { userId :: Maybe Integer
-                                , userName :: Maybe String
+             | BitsBadgeMessage { messageUser :: Maybe Integer
+                                , messageUserName :: Maybe String
                                 , channelId :: Integer
                                 , channelName :: String
                                 , bitsTier :: Integer
@@ -241,7 +239,7 @@ data Message = BitsV2Message { badge :: Maybe BadgeUnlock
                                 }
              | ChannelPointsMessage { serverTime :: Maybe Time.UTCTime
                                     , redeemedTime :: Maybe Time.UTCTime
-                                    , user :: UserInfo
+                                    , userInfo :: UserInfo
                                     , rewardId :: String
                                     , channelId :: Integer
                                     , title :: String
@@ -259,7 +257,7 @@ data Message = BitsV2Message { badge :: Maybe BadgeUnlock
                                     , autoFulfilled :: Bool
                                     , status :: RewardStatus
                                     }
-             | ChannelSubscriptionMessage { user :: UserInfo
+             | ChannelSubscriptionMessage { userInfo :: UserInfo
                                           , channelName :: String
                                           , channelId :: Integer
                                           , time :: Maybe Time.UTCTime
@@ -267,7 +265,7 @@ data Message = BitsV2Message { badge :: Maybe BadgeUnlock
                                           , subPlanName :: String
                                           , subMessage :: SubscriptionMessage
                                           }
-             | ChannelResubscriptionMessage { user :: UserInfo
+             | ChannelResubscriptionMessage { userInfo :: UserInfo
                                             , channelName :: String
                                             , channelId :: Integer
                                             , time :: Maybe Time.UTCTime
@@ -277,7 +275,7 @@ data Message = BitsV2Message { badge :: Maybe BadgeUnlock
                                             , streakMonths :: Maybe Integer
                                             , subMessage :: SubscriptionMessage
                                             }
-             | ChannelExtendSubscriptionMessage { user :: UserInfo
+             | ChannelExtendSubscriptionMessage { userInfo :: UserInfo
                                                 , channelName :: String
                                                 , channelId :: Integer
                                                 , time :: Maybe Time.UTCTime
@@ -288,7 +286,7 @@ data Message = BitsV2Message { badge :: Maybe BadgeUnlock
                                                 , endMonth :: Integer
                                                 , subMessage :: SubscriptionMessage
                                                 }
-             | ChannelSubscriptionGiftMessage { user :: UserInfo
+             | ChannelSubscriptionGiftMessage { userInfo :: UserInfo
                                               , channelName :: String
                                               , channelId :: Integer
                                               , time :: Maybe Time.UTCTime
@@ -296,7 +294,7 @@ data Message = BitsV2Message { badge :: Maybe BadgeUnlock
                                               , subPlanName :: String
                                               , recipient :: UserInfo
                                               }
-             | ChannelMultiMonthSubscriptionGiftMessage { user :: UserInfo
+             | ChannelMultiMonthSubscriptionGiftMessage { userInfo :: UserInfo
                                                         , channelName :: String
                                                         , channelId :: Integer
                                                         , time :: Maybe Time.UTCTime
@@ -324,8 +322,8 @@ data Message = BitsV2Message { badge :: Maybe BadgeUnlock
                               , threadId :: String
                               , time :: Maybe Time.UTCTime
                               , messageBody :: String
-                              , emotes :: [EmoteSpec]
-                              , user :: UserInfo
+                              , messageEmotes :: [EmoteSpec]
+                              , userInfo :: UserInfo
                               , userColor :: String
                               , recipient :: UserInfo
                               }
@@ -348,10 +346,10 @@ type MessageParser = Object -> JSON.Types.Parser Message
 parseChannelSubscribeEvent :: MessageParser
 parseChannelSubscribeEvent o = do
     uid :: String <- o .: "user_id"
-    userName <- o .: "user_name"
+    messageUserName <- o .: "user_name"
     displayName <- o .: "display_name"
-    let userId = read uid :: Integer
-        user = UserInfo userId userName displayName
+    let messageUser = read uid :: Integer
+        userInfo = UserInfo messageUser messageUserName displayName
 
     channelName <- o .: "channel_name"
     channel <- o .: "channel_id"
@@ -369,10 +367,10 @@ parseChannelSubscribeEvent o = do
 parseChannelResubscribeEvent :: MessageParser
 parseChannelResubscribeEvent o = do
     uid :: String <- o .: "user_id"
-    userName <- o .: "user_name"
+    messageUserName <- o .: "user_name"
     displayName <- o .: "display_name"
-    let userId = read uid :: Integer
-        user = UserInfo userId userName displayName
+    let messageUser = read uid :: Integer
+        userInfo = UserInfo messageUser messageUserName displayName
 
     channelName <- o .: "channel_name"
     channel <- o .: "channel_id"
@@ -392,10 +390,10 @@ parseChannelResubscribeEvent o = do
 parseChannelExtendSubEvent :: MessageParser
 parseChannelExtendSubEvent o = do
     uid :: String <- o .: "user_id"
-    userName <- o .: "user_name"
+    messageUserName <- o .: "user_name"
     displayName <- o .: "display_name"
-    let userId = read uid :: Integer
-        user = UserInfo userId userName displayName
+    let messageUser = read uid :: Integer
+        userInfo = UserInfo messageUser messageUserName displayName
 
     channelName <- o .: "channel_name"
     channel <- o .: "channel_id"
@@ -416,10 +414,10 @@ parseChannelExtendSubEvent o = do
 parseChannelSubGiftEvent :: MessageParser
 parseChannelSubGiftEvent o = do
     uid :: String <- o .: "user_id"
-    userName <- o .: "user_name"
+    messageUserName <- o .: "user_name"
     displayName <- o .: "display_name"
-    let userId = read uid :: Integer
-        user = UserInfo userId userName displayName
+    let messageUser = read uid :: Integer
+        userInfo = UserInfo messageUser messageUserName displayName
 
     rid :: String <- o .: "recipient_id"
     rUserName <- o .: "recipient_user_name"
@@ -499,14 +497,14 @@ parseBitsV2 o dat = do
     messageId <- o .: "message_id"
     messageType <- o .: "message_type" -- Always bits_event?  No other examples given in API docs
     userTotal <- dat .: "total_bits_used"
-    userName <- dat .: "user_name"
+    messageUserName <- dat .: "user_name"
     version <- o .: "version"
 
     channel :: String <- dat .: "channel_id"
     let channelId = read channel :: Integer
 
     uid :: Maybe String <- dat .: "user_id"
-    let userId = fmap (read :: String -> Integer) uid
+    let messageUser = fmap (read :: String -> Integer) uid
 
     t :: String <- dat .: "time"
     let time = Time.zonedTimeToUTC <$> Time.parseTimeRFC3339 t
@@ -541,11 +539,11 @@ parseBitsV1Message o = do
     messageId <- o .: "message_id"
     messageType <- o .: "message_type" -- Always bits_event?  No other examples given in API docs
     userTotal <- dat .: "total_bits_used"
-    userName <- dat .: "user_name"
+    messageUserName <- dat .: "user_name"
     version <- o .: "version"
 
     uid :: Maybe String <- dat .: "user_id"
-    let userId = fmap (read :: String -> Integer) uid
+    let messageUser = fmap (read :: String -> Integer) uid
 
     channel :: String <- dat .: "channel_id"
     let channelId = read channel :: Integer
@@ -557,8 +555,8 @@ parseBitsV1Message o = do
 
 parseBitsBadgeMessage :: MessageParser
 parseBitsBadgeMessage o = do
-    userId <- o .: "user_id"
-    userName <- o .: "user_name"
+    messageUser <- o .: "user_id"
+    messageUserName <- o .: "user_name"
     channelName <- o .: "channel_name"
     bitsTier <- o .: "badge_tier"
     chatMessage <- o .: "chat_message"
@@ -574,7 +572,7 @@ parseRewardMessage o = do
     dat <- o .: "data"
     redemption <- dat .: "redemption"
     reward <- redemption .: "reward"
-    user <- redemption .: "user"
+    userInfo <- redemption .: "user"
     rewardId <- reward .: "id"
     title <- reward .: "title"
     prompt <- reward .: "prompt"
@@ -617,13 +615,13 @@ parseWhisperMessage o = do
     threadId <- dat .: "thread_id"
     messageBody <- dat .: "body"
     tags <- dat .: "tags"
-    emotes <- tags .: "emotes"
+    messageEmotes <- tags .: "emotes"
     userColor <- tags .: "color"
 
-    userId <- dat .: "from_id"
-    userName <- tags .: "login"
+    messageUser <- dat .: "from_id"
+    messageUserName <- tags .: "login"
     displayName <- tags .: "display_name"
-    let user = UserInfo userId userName displayName
+    let userInfo = UserInfo messageUser messageUserName displayName
 
     recipientData <- dat .: "recipient"
     rUserId <- recipientData .: "id"
