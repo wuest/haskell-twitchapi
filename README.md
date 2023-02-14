@@ -1,5 +1,5 @@
 [![Version](https://img.shields.io/hackage/v/twitchapi)][badges:0-hackage]
-[![Build](https://img.shields.io/github/workflow/status/wuest/haskell-twitchapi/CI)][badges:1-CI]
+[![Build](https://img.shields.io/github/actions/workflow/status/wuest/haskell-twitchapi/ci.yaml?branch=main)][badges:1-CI]
 [![License](https://img.shields.io/github/license/wuest/haskell-twitchapi)][badges:2-license]
 
 # Twitch API
