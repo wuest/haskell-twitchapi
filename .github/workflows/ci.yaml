@@ -10,28 +10,42 @@ jobs:
   build:
     strategy:
       matrix:
-        cabal: ['3.2']
-        ghc: ['8.4', '8.8', '8.10', '9.0']
+        ghc: ['8.8', '8.10', '9.0']
         os: ['ubuntu-latest']
     runs-on: ${{ matrix.os }}
-    name: Build twitchapi on GHC ${{ matrix.ghc }}
+    name: Build obs-websocket using GHC ${{ matrix.ghc }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: haskell/actions/setup@v2
+      - uses: actions/checkout@v4
+
+      - name: Set up GHC ${{ matrix.ghc }}
+        uses: haskell-actions/setup@v2.7.1
+        id: setup
         with:
           ghc-version: ${{ matrix.ghc }}
           cabal-version: ${{ matrix.cabal }}
-      - uses: actions/cache@v3
-        name: Cache
+
+      - name: Restore cached dependencies
+        uses: actions/cache/restore@v4
+        id: cache
+        env:
+          key: ${{ matrix.os }}-ghc-${{ matrix.ghc }}-cabal-${{ matrix.cabal }}
         with:
-          path: |
-            ~/.cabal/packages
-            ~/.cabal/store
-            dist-newstyle
-          key: ${{ runner.os }}-build-${{ matrix.ghc }}-${{ hashFiles('**/*.cabal') }}
-      - run: |
-          cabal v2-update
-          cabal v2-build --only-dependencies --enable-tests all
-      - run: |
-          cabal v2-build
-          cabal v2-test
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: ${{ env.key }}-plan-${{ hashFiles('**/plan.json') }}
+          restore-keys: ${{ env.key }}-
+
+      - name: Install dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: cabal v2-build all --only-dependencies
+
+      - name: Save cached dependencies
+        uses: actions/cache/save@v4
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+
+      - name: Build and Test
+        run: |
+          make all
+          make test
