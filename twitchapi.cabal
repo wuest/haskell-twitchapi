@@ -31,15 +31,15 @@ library
                     , Web.TwitchAPI.Helix.Users
                     , Web.TwitchAPI.PubSub
 
-  build-depends:      base            >= 4.11 && < 4.20
+  build-depends:      base            >= 4.11 && < 4.22
                     , aeson           >= 2.1  && < 2.3
                     , bytestring      >= 0.10 && < 0.13
-                    , hoauth2         >= 1.16 && < 2.14
+                    , hoauth2         >= 1.16 && < 2.15
                     , http-client     >= 0.5  && < 0.8
                     , text            >= 1.2  && < 2.2
                     , time            >= 1.6  && < 1.15
                     , timerep         >= 2.0  && < 2.2
-                    , uri-bytestring  >= 0.3  && < 0.4
+                    , uri-bytestring  >= 0.3  && < 0.5
 
 test-suite pubsub
   ghc-options:      -threaded -rtsopts -with-rtsopts=-N
@@ -49,7 +49,7 @@ test-suite pubsub
                     , src
   main-is:          PubSub.hs
   other-modules:      Web.TwitchAPI.PubSub
-  build-depends:      base            >= 4.11 && < 4.20
+  build-depends:      base            >= 4.11 && < 4.22
                     , QuickCheck      >= 2.8
                     , hspec           >= 2.7
                     , aeson           >= 2.1  && < 2.3
@@ -68,7 +68,7 @@ test-suite helix
   other-modules:      Web.TwitchAPI.Helix.Request
                     , Web.TwitchAPI.Helix.Users
                     , Helix.Users
-  build-depends:      base            >= 4.11 && < 4.20
+  build-depends:      base            >= 4.11 && < 4.22
                     , QuickCheck      >= 2.8
                     , hspec           >= 2.7
                     , aeson           >= 2.1  && < 2.3
