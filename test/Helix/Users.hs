@@ -1,12 +1,10 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Helix.Users ( main ) where
 
 import qualified Data.Aeson            as JSON
 import qualified Data.ByteString.Lazy  as BS
 import qualified Data.List             as List
-import qualified Data.Text             as T
-import qualified Data.Text.Encoding    as T
+import qualified Data.Text             as Text
+import qualified Data.Text.Encoding    as Text
 import qualified Data.Time             as Time
 import qualified Data.Time.RFC3339     as Time ( parseTimeRFC3339 )
 import qualified Data.Time.Clock.POSIX as Time ( POSIXTime, posixSecondsToUTCTime )
@@ -40,7 +38,8 @@ prop_userJSONFixture =
         profileImageURL = "https://static-cdn.jtvnw.net/jtv_user_pictures/8a6381c7-d0c0-4576-b179-38bd5ce1d6af-profile_image-300x300.png"
         userType = Users.NormalUser
         email = Just "not-real@email.com"
-        createdAt = Time.zonedTimeToUTC <$> Time.parseTimeRFC3339 "2016-12-14T20:32:28Z"
+        time :: Text.Text = "2016-12-14T20:32:28Z"
+        createdAt = Time.zonedTimeToUTC <$> Time.parseTimeRFC3339 time
         record = Users.UserEntry broadcasterType description displayName userId login offlineImageURL profileImageURL userType email createdAt
         response = Right $ Users.UsersResponse [record]
         parsed = parseJSON singleUserJSON :: Either String Users.UsersResponse
@@ -57,7 +56,8 @@ prop_usersJSONFixture =
         profileImageURL = "https://static-cdn.jtvnw.net/jtv_user_pictures/8a6381c7-d0c0-4576-b179-38bd5ce1d6af-profile_image-300x300.png"
         userType = Users.NormalUser
         email = Just "not-real@email.com"
-        createdAt = Time.zonedTimeToUTC <$> Time.parseTimeRFC3339 "2016-12-14T20:32:28Z"
+        time :: Text.Text = "2016-12-14T20:32:28Z"
+        createdAt = Time.zonedTimeToUTC <$> Time.parseTimeRFC3339 time
         record = Users.UserEntry broadcasterType description displayName userId login offlineImageURL profileImageURL userType email createdAt
         response = Right $ Users.UsersResponse [record, record]
         parsed = parseJSON multiUserJSON :: Either String Users.UsersResponse
@@ -70,14 +70,16 @@ prop_followsJSONFixture =
         a_from_name = "IIIsutha067III"
         a_to_id = 23161357
         a_to_name = "LIRIK"
-        a_followed = Time.zonedTimeToUTC <$> Time.parseTimeRFC3339 "2017-08-22T22:55:24Z"
+        a_time :: Text.Text = "2017-08-22T22:55:24Z"
+        a_followed = Time.zonedTimeToUTC <$> Time.parseTimeRFC3339 a_time
 
         b_from_id = 113627897
         b_from_login = "birdman616"
         b_from_name = "Birdman616"
         b_to_id = 23161357
         b_to_name = "LIRIK"
-        b_followed = Time.zonedTimeToUTC <$> Time.parseTimeRFC3339 "2017-08-22T22:55:04Z"
+        b_time :: Text.Text = "2017-08-22T22:55:04Z"
+        b_followed = Time.zonedTimeToUTC <$> Time.parseTimeRFC3339 b_time
 
         a = Users.FollowEntry a_from_id a_from_login a_from_name a_to_id a_to_name a_followed
         b = Users.FollowEntry b_from_id b_from_login b_from_name b_to_id b_to_name b_followed
@@ -180,7 +182,7 @@ prop_activeExtensionsJSONFixture =
     in response == parsed
 
 parseJSON :: JSON.FromJSON a => String -> Either String a
-parseJSON x = JSON.eitherDecode $ (BS.fromStrict . T.encodeUtf8 . T.pack) x
+parseJSON x = JSON.eitherDecode $ (BS.fromStrict . Text.encodeUtf8 . Text.pack) x
 
 -- Server Responses
 
