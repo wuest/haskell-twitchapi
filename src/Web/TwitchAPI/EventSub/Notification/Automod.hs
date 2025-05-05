@@ -31,7 +31,7 @@ import qualified Data.Time        as Time
 
 import Web.TwitchAPI.EventSub.Notification.User ( User, userFor )
 
-import qualified Web.TwitchAPI.EventSub.Notification.Message as Message 
+import qualified Web.TwitchAPI.EventSub.Notification.Message as Message
 
 data Term = Term { termID :: Text
                  , boundary :: (Int, Int)
@@ -140,21 +140,6 @@ data Settings = Overall Integer
                          , race :: Integer
                          , sexBasedTerms :: Integer
                          } deriving ( Show, Eq )
-instance FromJSON Settings where
-    parseJSON = withObject "event" $ \o -> do
-        overall :: Maybe Integer<- o .:? "overall_level"
-        case overall of
-          (Just l) -> return (Overall l)
-          _ -> do
-              disability <- o .: "disability"
-              aggression <- o .: "aggression"
-              sexuality <- o .: "sexuality_sex_or_gender"
-              misogyny <- o .: "misogyny"
-              bullying <- o .: "bullying"
-              swearing <- o .: "swearing"
-              race <- o .: "race_ethnicity_or_religion"
-              sexBasedTerms <- o .: "sex_based_terms"
-              return Settings{..}
 
 data Action = AddPermitted
             | RemovePermitted
@@ -203,7 +188,7 @@ data Message = MessageHoldV1 { broadcaster :: User
                              }
              | SettingsUpdate { broadcaster :: User
                               , moderator :: User
-                              , automodSettings :: [Settings]
+                              , automodSettings :: Settings
                               }
              | TermsUpdate { broadcaster :: User
                            , moderator :: User
@@ -260,6 +245,25 @@ messageUpdate o = do
     status <- e .: "status"
     reason <- o .: "event"
     return MessageUpdate{..}
+
+settingsUpdate :: MessageParser
+settingsUpdate o = do
+    broadcaster <- userFor "broadcaster" o
+    moderator <- userFor "moderator " o
+    overall :: Maybe Integer<- o .:? "overall_level"
+    automodSettings <- case overall of
+                           (Just l) -> return (Overall l)
+                           _ -> do
+                               disability <- o .: "disability"
+                               aggression <- o .: "aggression"
+                               sexuality <- o .: "sexuality_sex_or_gender"
+                               misogyny <- o .: "misogyny"
+                               bullying <- o .: "bullying"
+                               swearing <- o .: "swearing"
+                               race <- o .: "race_ethnicity_or_religion"
+                               sexBasedTerms <- o .: "sex_based_terms"
+                               return Settings{..}
+    return SettingsUpdate{..}
 
 termsUpdate :: MessageParser
 termsUpdate o = do

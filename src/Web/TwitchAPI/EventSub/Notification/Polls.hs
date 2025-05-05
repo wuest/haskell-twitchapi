@@ -220,7 +220,7 @@ pollEnd o = do
     startTime <- o .: "started_at"
     endTime <- o .: "ended_at"
     return PollEnd{..}
-    
+
 predictionBegin :: MessageParser
 predictionBegin o = do
     predictionID <- o .: "id"
@@ -230,7 +230,7 @@ predictionBegin o = do
     startTime <- o .: "started_at"
     lockTime <- o .: "locks_at"
     return PredictionBegin{..}
-    
+
 predictionProgress :: MessageParser
 predictionProgress o = do
     predictionID <- o .: "id"
@@ -240,7 +240,7 @@ predictionProgress o = do
     startTime <- o .: "started_at"
     lockTime <- o .: "locks_at"
     return PredictionProgress{..}
-    
+
 predictionLock :: MessageParser
 predictionLock o = do
     predictionID <- o .: "id"
@@ -250,7 +250,7 @@ predictionLock o = do
     startTime <- o .: "started_at"
     lockTime <- o .: "locked_at"
     return PredictionLock{..}
-    
+
 predictionEnd :: MessageParser
 predictionEnd o = do
     predictionID <- o .: "id"
