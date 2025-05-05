@@ -1,25 +1,22 @@
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
 
 {- |
 Module      :  TwitchAPI.PubSub
-Copyright   :  (c) Christina Wuest 2021
+Copyright   :  (c) Christina Wuest 2021-2025
 License     :  BSD-style
 
 Maintainer  :  tina@wuest.me
 Stability   :  experimental
 Portability :  non-portable
 
-Messages sent over Twitch's PubSub interface.
+Messages sent over Twitch's EventSub interface.
 -}
 
-module Web.TwitchAPI.PubSub where
+module Web.TwitchAPI.EventSub where
 
 import Prelude
-
 
 import qualified Data.Aeson            as JSON
 import qualified Data.Maybe            as Maybe
@@ -36,6 +33,23 @@ import Control.Monad ( mzero )
 import GHC.Generics  ( Generic )
 
 import qualified Data.Aeson.Types as JSON.Types
+
+data Transport = Webhook !Callback !Secret
+               | Websocket !SessionID
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 data Topic = BitsV1 { channel :: Integer }
            | BitsV2 { channel :: Integer }
@@ -193,141 +207,11 @@ instance FromJSON SubscriptionMessage where
         let subscriptionEmotes = Maybe.fromMaybe [] emotes'
         return SubscriptionMessage{..}
 
-data Message = BitsV2Message { badge :: Maybe BadgeUnlock
-                             , bits :: Integer
-                             , channelId :: Integer
-                             , chatMessage :: Maybe String
-                             , context :: String
-                             , messageId :: String
-                             , messageType :: String
-                             , time :: Maybe Time.UTCTime
-                             , userTotal :: Integer
-                             , messageUser :: Maybe Integer
-                             , messageUserName :: Maybe String
-                             , version :: String
-                             }
-             | BitsV2AnonymousMessage { bits :: Integer
-                                      , channelId :: Integer
-                                      , chatMessage :: Maybe String
-                                      , context :: String
-                                      , messageId :: String
-                                      , messageType :: String
-                                      , time :: Maybe Time.UTCTime
-                                      , version :: String
-                                      }
-             | BitsV1Message { badge :: Maybe BadgeUnlock
-                             , bits :: Integer
-                             , channelId :: Integer
-                             , channelName :: String
-                             , chatMessage :: Maybe String
-                             , context :: String
-                             , messageId :: String
-                             , messageType :: String
-                             , time :: Maybe Time.UTCTime
-                             , userTotal :: Integer
-                             , messageUser :: Maybe Integer
-                             , messageUserName :: Maybe String
-                             , version :: String
-                             }
-             | BitsBadgeMessage { messageUser :: Maybe Integer
-                                , messageUserName :: Maybe String
-                                , channelId :: Integer
-                                , channelName :: String
-                                , bitsTier :: Integer
-                                , chatMessage :: Maybe String
-                                , time :: Maybe Time.UTCTime
-                                }
-             | ChannelPointsMessage { serverTime :: Maybe Time.UTCTime
-                                    , redeemedTime :: Maybe Time.UTCTime
-                                    , userInfo :: UserInfo
-                                    , rewardId :: String
-                                    , channelId :: Integer
-                                    , title :: String
-                                    , prompt :: Maybe String
-                                    , cost :: Integer
-                                    , userInput :: Maybe String
-                                    , subOnly :: Bool
-                                    , image :: Maybe RewardImages
-                                    , defaultImage :: RewardImages
-                                    , backgroundColor :: String
-                                    , enabled :: Bool
-                                    , paused :: Bool
-                                    , inStock :: Bool
-                                    , maxPerStream :: Maybe Integer
-                                    , autoFulfilled :: Bool
-                                    , status :: RewardStatus
-                                    }
-             | ChannelSubscriptionMessage { userInfo :: UserInfo
-                                          , channelName :: String
-                                          , channelId :: Integer
-                                          , time :: Maybe Time.UTCTime
-                                          , subTier :: SubscriptionTier
-                                          , subPlanName :: String
-                                          , subMessage :: SubscriptionMessage
-                                          }
-             | ChannelResubscriptionMessage { userInfo :: UserInfo
-                                            , channelName :: String
-                                            , channelId :: Integer
-                                            , time :: Maybe Time.UTCTime
-                                            , subTier :: SubscriptionTier
-                                            , subPlanName :: String
-                                            , totalMonths :: Integer
-                                            , streakMonths :: Maybe Integer
-                                            , subMessage :: SubscriptionMessage
-                                            }
-             | ChannelExtendSubscriptionMessage { userInfo :: UserInfo
-                                                , channelName :: String
-                                                , channelId :: Integer
-                                                , time :: Maybe Time.UTCTime
-                                                , subTier :: SubscriptionTier
-                                                , subPlanName :: String
-                                                , totalMonths :: Integer
-                                                , streakMonths :: Maybe Integer
-                                                , endMonth :: Integer
-                                                , subMessage :: SubscriptionMessage
-                                                }
-             | ChannelSubscriptionGiftMessage { userInfo :: UserInfo
-                                              , channelName :: String
-                                              , channelId :: Integer
-                                              , time :: Maybe Time.UTCTime
-                                              , subTier :: SubscriptionTier
-                                              , subPlanName :: String
-                                              , recipient :: UserInfo
-                                              }
-             | ChannelMultiMonthSubscriptionGiftMessage { userInfo :: UserInfo
-                                                        , channelName :: String
-                                                        , channelId :: Integer
-                                                        , time :: Maybe Time.UTCTime
-                                                        , subTier :: SubscriptionTier
-                                                        , subPlanName :: String
-                                                        , recipient :: UserInfo
-                                                        , months :: Integer
-                                                        }
-             | ChannelAnonymousSubscriptionGiftMessage { channelName :: String
-                                                       , channelId :: Integer
-                                                       , time :: Maybe Time.UTCTime
-                                                       , subTier :: SubscriptionTier
-                                                       , subPlanName :: String
-                                                       , recipient :: UserInfo
-                                                       }
-             | ChannelAnonymousMultiMonthSubscriptionGiftMessage { channelName :: String
-                                                                 , channelId :: Integer
-                                                                 , time :: Maybe Time.UTCTime
-                                                                 , subTier :: SubscriptionTier
-                                                                 , subPlanName :: String
-                                                                 , recipient :: UserInfo
-                                                                 , months :: Integer
-                                                                 }
-             | WhisperMessage { messageId :: String
-                              , threadId :: String
-                              , time :: Maybe Time.UTCTime
-                              , messageBody :: String
-                              , messageEmotes :: [EmoteSpec]
-                              , userInfo :: UserInfo
-                              , userColor :: String
-                              , recipient :: UserInfo
-                              }
-             | SuccessMessage { nonce :: Maybe String }
+data Message = WelcomeMessage { }
+             | KeepAlive { }
+             | Reconnect { }
+             | Revocation { }
+             | Close { }
              | ErrorMessage { nonce :: Maybe String
                             , errorString :: String
                             } deriving ( Eq, Show, Generic )

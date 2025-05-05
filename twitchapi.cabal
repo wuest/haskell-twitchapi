@@ -1,5 +1,5 @@
 name:                twitchapi
-version:             0.0.5
+version:             0.1.0
 synopsis:            Client access to Twitch.tv API endpoints
 description:         Twitch.tv API client supporting Helix and PubSub
 homepage:            https://github.com/wuest/haskell-twitchapi
@@ -21,19 +21,44 @@ source-repository head
 library
   ghc-options:      -Wall -fwarn-implicit-prelude -fwarn-monomorphism-restriction -static
   default-extensions: BangPatterns
+                    , LambdaCase
                     , NumericUnderscores
                     , OverloadedStrings
                     , ScopedTypeVariables
   default-language: Haskell2010
-  default-extensions:   LambdaCase
-                      , OverloadedStrings
   hs-source-dirs:   src
 
   exposed-modules:    Web.TwitchAPI.Helix.Bits
                     , Web.TwitchAPI.Helix.ChannelPoints
                     , Web.TwitchAPI.Helix.Request
                     , Web.TwitchAPI.Helix.Users
-                    , Web.TwitchAPI.PubSub
+                    , Web.TwitchAPI.EventSub.Request
+                    , Web.TwitchAPI.EventSub.Notification
+                    , Web.TwitchAPI.EventSub.Notification.AdBreak
+                    , Web.TwitchAPI.EventSub.Notification.Automod
+                    , Web.TwitchAPI.EventSub.Notification.Bits
+                    , Web.TwitchAPI.EventSub.Notification.ChannelPoints
+                    , Web.TwitchAPI.EventSub.Notification.Chat
+                    , Web.TwitchAPI.EventSub.Notification.Charity
+                    , Web.TwitchAPI.EventSub.Notification.Currency
+                    , Web.TwitchAPI.EventSub.Notification.Drop
+                    , Web.TwitchAPI.EventSub.Notification.Emote
+                    , Web.TwitchAPI.EventSub.Notification.Follow
+                    , Web.TwitchAPI.EventSub.Notification.Goal
+                    , Web.TwitchAPI.EventSub.Notification.HypeTrain
+                    , Web.TwitchAPI.EventSub.Notification.Message
+                    , Web.TwitchAPI.EventSub.Notification.Moderation
+                    , Web.TwitchAPI.EventSub.Notification.Polls
+                    , Web.TwitchAPI.EventSub.Notification.Raid
+                    , Web.TwitchAPI.EventSub.Notification.ShieldMode
+                    , Web.TwitchAPI.EventSub.Notification.Shoutout
+                    , Web.TwitchAPI.EventSub.Notification.Status
+                    , Web.TwitchAPI.EventSub.Notification.StreamTogether
+                    , Web.TwitchAPI.EventSub.Notification.Subscription
+                    , Web.TwitchAPI.EventSub.Notification.System
+                    , Web.TwitchAPI.EventSub.Notification.User
+                    , Web.TwitchAPI.EventSub.Notification.VIP
+                    , Web.TwitchAPI.EventSub.Notification.Whisper
 
   build-depends:      base            >= 4.11 && < 4.22
                     , aeson           >= 2.1  && < 2.3
@@ -44,27 +69,6 @@ library
                     , time            >= 1.6  && < 1.15
                     , timerep         >= 2.0  && < 2.2
                     , uri-bytestring  >= 0.3  && < 0.5
-
-test-suite pubsub
-  ghc-options:      -threaded -rtsopts -with-rtsopts=-N
-  default-extensions: BangPatterns
-                    , NumericUnderscores
-                    , OverloadedStrings
-                    , ScopedTypeVariables
-  default-language: Haskell2010
-  type:             exitcode-stdio-1.0
-  hs-source-dirs:     test
-                    , src
-  main-is:          PubSub.hs
-  other-modules:      Web.TwitchAPI.PubSub
-  build-depends:      base            >= 4.11 && < 4.22
-                    , QuickCheck      >= 2.8
-                    , hspec           >= 2.7
-                    , aeson           >= 2.1  && < 2.3
-                    , bytestring      >= 0.10 && < 0.13
-                    , text            >= 1.2  && < 2.2
-                    , time            >= 1.6  && < 1.15
-                    , timerep         >= 2.0  && < 2.2
 
 test-suite helix
   ghc-options:      -threaded -rtsopts -with-rtsopts=-N
