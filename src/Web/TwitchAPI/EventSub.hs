@@ -37,6 +37,7 @@ import qualified Data.Aeson.Types as JSON.Types
 data Transport = Webhook !Callback !Secret
                | Websocket !SessionID
 
+data Topic = 
 
 
 
