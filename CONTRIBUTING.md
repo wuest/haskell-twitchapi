@@ -39,11 +39,7 @@ haskell-twitchapi, please refer to this checklist.
 * Before submitting, please familiarize yourself with the
   [Contributor Code of Conduct][3-patch:0-code-of-conduct].
 
-[0-badges:0-gem]: https://hackage.haskell.org/package/twitchapi
-[0-badges:1-CI]: https://github.com/wuest/haskell-twitchapi/actions/workflows/ci.yaml
-[0-badges:2-license]: https://github.com/wuest/haskell-twitchapi/blob/main/LICENSE
 [1-security:0]: https://github.com/wuest/haskell-twitchapi/blob/main/SECURITY.md
 [2-bugs:0-issues]: https://github.com/wuest/haskell-twitchapi/issues
 [2-bugs:1-new-issue]: https://github.com/wuest/haskell-twitchapi/issues/new
 [3-patch:0-code-of-conduct]: https://github.com/wuest/haskell-twitchapi/blob/main/CODE_OF_CONDUCT.md
-
