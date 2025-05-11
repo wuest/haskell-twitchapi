@@ -4,18 +4,20 @@
 
 # Twitch API
 
-This library provides a client for Twitch's APIs, providing (currently
-incomplete) support for [PubSub][main:0-pubsub] and [Helix][main:1-helix]
+This library provides a client support for Twitch's APIs, providing (currently
+incomplete) support for [Helix][main:1-helix] and [EventSub][main:0-eventsub]
 interfaces.
 
 ## API Support
 
-Currently partial support is provided for PubSub and Helix (Bits and Channel
-Points support are currently implemented) interfaces.
+Currently partial support is provided for Helix (Bits and Channel Points support
+are currently implemented) and complete support is provided for EventSub.  To
+avoid incurring potentially unneeded library inclusion, the API clients are
+provided separately in [twitchapi-client][api:0-client].
 
 ## License
 
-This library is released under the [MIT License][license-1:MIT]
+This library is released under the [BSD 3-Clause License][license-1:BSD]
 
 ## Contributions
 
@@ -40,9 +42,10 @@ The this project is governed by a [Code of Conduct][code-of-conduct].
 [badges:0-hackage]: https://hackage.haskell.org/package/twitchapi
 [badges:1-CI]: https://github.com/wuest/haskell-twitchapi/actions/workflows/ci.yaml
 [badges:2-license]: https://github.com/wuest/haskell-twitchapi/blob/main/LICENSE
-[main:0-pubsub]: https://dev.twitch.tv/docs/pubsub
+[main:0-eventsub]: https://dev.twitch.tv/docs/eventsub/
 [main:1-helix]: https://dev.twitch.tv/docs/api
-[license-1:MIT]: https://github.com/wuest/haskell-twitchapi/blob/main/LICENSE
+[api:0-client]: https://hackage.haskell.org/package/twitchapi-client
+[license-1:BSD]: https://github.com/wuest/haskell-twitchapi/blob/main/LICENSE
 [SECURITY]: https://github.com/wuest/haskell-twitchapi/blob/main/SECURITY.md
 [CONTRIBUTING]: https://github.com/wuest/haskell-twitchapi/blob/main/CONTRIBUTING.md
 [code-of-conduct]: https://github.com/wuest/haskell-twitchapi/blob/main/CODE_OF_CONDUCT.md

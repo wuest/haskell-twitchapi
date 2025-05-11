@@ -102,7 +102,7 @@ instance FromJSON Status where
 
 data Reward = Reward { rewardID :: Text
                      , rewardTitle :: Text
-                     , rewardCost :: Text
+                     , rewardCost :: Integer
                      , rewardPrompt :: Text
                      } deriving ( Show, Eq )
 instance FromJSON Reward where
@@ -331,7 +331,7 @@ customRewardRedemptionAdd :: MessageParser
 customRewardRedemptionAdd o = do
     redemptionID <- o .: "id"
     broadcaster <- userFor "broadcaster" o
-    user <- userFor "user" o
+    user <- userFor "" o
     input <- o .: "user_input"
     status <- o .: "status"
     reward <- o .: "reward"
@@ -342,7 +342,7 @@ customRewardRedemptionUpdate :: MessageParser
 customRewardRedemptionUpdate o = do
     redemptionID <- o .: "id"
     broadcaster <- userFor "broadcaster" o
-    user <- userFor "user" o
+    user <- userFor "" o
     input <- o .: "user_input"
     status <- o .: "status"
     reward <- o .: "reward"

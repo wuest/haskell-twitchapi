@@ -30,6 +30,7 @@ library
 
   exposed-modules:    Web.TwitchAPI.Helix.Bits
                     , Web.TwitchAPI.Helix.ChannelPoints
+                    , Web.TwitchAPI.Helix.EventSub
                     , Web.TwitchAPI.Helix.Request
                     , Web.TwitchAPI.Helix.Users
                     , Web.TwitchAPI.EventSub.Request
@@ -59,6 +60,7 @@ library
                     , Web.TwitchAPI.EventSub.Notification.User
                     , Web.TwitchAPI.EventSub.Notification.VIP
                     , Web.TwitchAPI.EventSub.Notification.Whisper
+                    , Web.TwitchAPI.EventSub.WebSockets
 
   build-depends:      base            >= 4.11 && < 4.22
                     , aeson           >= 2.1  && < 2.3

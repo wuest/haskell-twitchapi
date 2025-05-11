@@ -16,8 +16,9 @@ import Prelude
 
 import Control.Monad ( mzero )
 import Data.Text     ( Text )
+import Data.Maybe    ( fromMaybe )
 
-import Data.Aeson ( FromJSON(..), (.:), Object, withObject )
+import Data.Aeson ( FromJSON(..), (.:), (.:?), Object, withObject )
 
 import qualified Data.Aeson.Types as JSON.Types
 
@@ -86,15 +87,31 @@ instance FromJSON Fragment where
 data Message = Message { body :: Text
                        , messageID :: Text
                        , fragments :: [Fragment]
-                       } deriving ( Show, Eq )
+                       }
+             | PartialMessage { body :: Text
+                              , fragments :: [Fragment]
+                              }
+             deriving ( Show, Eq )
 instance FromJSON Message where
-    parseJSON = withObject "Message" $ \e -> do
-        messageID <- e .: "message_id"
-        withID messageID e
+    parseJSON = withObject "Message" fromEvent
+
+fromEvent :: Object -> JSON.Types.Parser Message
+fromEvent e = do
+    messageID' <- e .:? "message_id"
+    message' <- e .:? "message"
+    let base = fromMaybe e message'
+    case messageID' of
+        Just messageID -> withID messageID base
+        Nothing -> withoutID base
 
 withID :: Text -> Object -> JSON.Types.Parser Message
-withID messageID e = do
-    o <- e .: "message"
+withID messageID o = do
     body <- o .: "text"
     fragments <- o .: "fragments"
     return Message{..}
+
+withoutID :: Object -> JSON.Types.Parser Message
+withoutID o = do
+    body <- o .: "text"
+    fragments <- o .: "fragments"
+    return PartialMessage{..}

@@ -11,7 +11,7 @@ import qualified Data.Time             as Time
 import qualified Data.Time.RFC3339     as Time ( parseTimeRFC3339 )
 import qualified Data.Time.Clock.POSIX as Time ( POSIXTime, posixSecondsToUTCTime )
 
-import qualified Web.TwitchAPI.PubSub
+-- import qualified Web.TwitchAPI.PubSub
 
 import Data.Char   ( isDigit, isLetter )
 import Text.Printf ( printf )
@@ -19,17 +19,20 @@ import Text.Printf ( printf )
 import Test.QuickCheck
 import Test.Hspec
 
+-- {"metadata":{"message_id":"2e663ac1-94e5-4bf4-82b6-9076b6b78666","message_type":"session_welcome","message_timestamp":"2025-05-07T13:55:02.658389334Z"},"payload":{"session":{"id":"AgoQA7RX6FefQvSGPVwwSMkawRIGY2VsbC1j","status":"connected","connected_at":"2025-05-07T13:55:02.654713828Z","keepalive_timeout_seconds":10,"reconnect_url":null,"recovery_url":null}}}
+-- {"metadata":{"message_id":"328e5a04-86b0-40c9-9bb2-d8a0c1d9c568","message_type":"session_keepalive","message_timestamp":"2025-05-07T13:55:12.658377423Z"},"payload":{}}
+
 newtype AlphaString = AlphaString { unwrapAlpha :: String } deriving Show
 instance Arbitrary AlphaString where
-    arbitrary = AlphaString <$> (listOf1 $ elements $ ['a'..'z'] ++ ['A'..'Z'])
+    arbitrary = AlphaString <$> listOf1 (elements $ ['a'..'z'] ++ ['A'..'Z'])
 
 newtype AlphaNumericString = AlphaNumericString { unwrapAlphaNumeric :: String } deriving Show
 instance Arbitrary AlphaNumericString where
-    arbitrary = AlphaNumericString <$> (listOf1 $ elements $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'])
+    arbitrary = AlphaNumericString <$> listOf1 (elements $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'])
 
 newtype NumericString = NumericString { unwrapNumeric :: String } deriving Show
 instance Arbitrary NumericString where
-    arbitrary = NumericString <$> (listOf1 $ elements ['0'..'9'])
+    arbitrary = NumericString <$> listOf1 (elements ['0'..'9'])
 
 newtype RFC3339 = RFC3339 { unwrapDate :: String } deriving Show
 instance Arbitrary RFC3339 where

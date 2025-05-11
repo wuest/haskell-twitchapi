@@ -14,16 +14,20 @@ module Web.TwitchAPI.EventSub.Request where
 
 import Prelude
 
-import Data.Text     ( Text )
 
 import Data.Aeson ( ToJSON(..), (.=), object
                   , Value( String )
                   )
+import Data.Text  ( Text )
 
 import qualified Data.Aeson.Types as JSON.Types
 
-data Transport = Webhook Text Text
-               | Websocket Text
+type Callback = Text
+type Secret = Text
+type SessionID = Text
+
+data Transport = Webhook !Callback !Secret
+               | Websocket !SessionID
                deriving ( Show, Eq )
 instance ToJSON Transport where
     toJSON (Webhook callback secret) = object [ "method"   .= String "webhook"
@@ -291,7 +295,6 @@ access UserAuthorizationRevoke{} _ = True
 access UserUpdate{} _ = True
 access WhisperReceived{} xs = any (`elem` xs) [ "user:read:whispers", "user:manage:whispers" ]
 
--- TODO: ToRequest here, which includes transport and condition.  Should be straightforward.
 -- TODO: This is EXTREMELY work in progress; this needs a ton of ergonomic fixes
 toRequest :: Transport -> Subscription -> Value
 toRequest transport AutomodMessageHoldV1{ broadcaster, moderator } =
@@ -897,9 +900,3 @@ toRequest transport WhisperReceived { user } =
            , "condition" .= object [ "user_id" .= String user ]
            , "transport" .= transport
            ]
-{-
-
-
--- TODO: ToRequest here, which includes transport and condition.  Should be straightforward.
-instance ToJSON Subscription where
--}

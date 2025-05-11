@@ -1,5 +1,11 @@
 # Revision history for twitchapi
 
+## 0.1.0 -- 2025-05-07
+
+* Bumped version dependencies
+* Deprecated PubSub
+* Added EventSub support
+
 ## 0.0.5 -- 2024-05-04
 
 * Bumped version dependencies
